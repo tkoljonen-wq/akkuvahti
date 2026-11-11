@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Akkuvahti</title>
+<meta name="description" content="Sähköauton akun kunnon automaattinen seuranta ajojen perusteella">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1b1e">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script>
+  window.__installPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__installPrompt = e;
+    document.dispatchEvent(new Event('installavailable'));
+  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
+    });
+  }
+</script>
+<style>
+  :root {
+    --bg: #0d1b1e;
+    --card: #15292d;
+    --card2: #1d363b;
+    --text: #e6f2f1;
+    --muted: #8fadab;
+    --accent: #2ed3b7;
+    --accent2: #5ab0ff;
+    --warn: #ffb547;
+    --danger: #ff6b6b;
+    --border: #284549;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px; line-height: 1.4;
+    padding: env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom));
+    min-height: 100vh;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  main { padding: 12px 16px; max-width: 720px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--card2); border-radius: 12px; padding: 12px; min-width: 0; }
+  .stat .v { font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+  .stat .l { font-size: 13px; color: var(--muted); }
+  .stat.big { grid-column: span 2; }
+  .stat.big .v { font-size: 34px; color: var(--accent); }
+  .stat .v.small { font-size: 16px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  input {
+    width: 100%; font: inherit; color: var(--text);
+    background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; min-height: 48px;
+  }
+  input:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+  input.key { font-family: ui-monospace, Consolas, monospace; font-size: 15px; }
+  [hidden] { display: none !important; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font: inherit; font-weight: 600; border: 0; border-radius: 12px;
+    padding: 12px 16px; min-height: 48px; cursor: pointer;
+    background: var(--card2); color: var(--text);
+  }
+  .btn.primary { background: var(--accent); color: #04211c; }
+  .btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn.small { min-height: 38px; padding: 6px 12px; font-size: 14px; }
+  .btn.block { width: 100%; margin-top: 14px; }
+  .btn:disabled { opacity: .5; }
+  .iconbtn { background: none; border: 0; color: var(--muted); padding: 8px; min-width: 44px; min-height: 44px; border-radius: 10px; cursor: pointer; }
+  .iconbtn svg { width: 24px; height: 24px; display: block; margin: auto; }
+  .iconbtn.spin svg { animation: spin 1s linear infinite; color: var(--accent); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #installBtn { display: none; background: var(--accent2); color: #04202c; }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .warnTxt { color: var(--warn); }
+  .errTxt { color: var(--danger); }
+  nav.tabs {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--card); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav.tabs button {
+    background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px;
+    padding: 8px 0 10px; min-height: 60px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer;
+  }
+  nav.tabs button svg { width: 24px; height: 24px; }
+  nav.tabs button.active { color: var(--accent); }
+  .view { display: none; }
+  .view.active { display: block; }
+  .drive { display: flex; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .drive:last-child { border-bottom: 0; }
+  .drive .main { flex: 1; min-width: 0; }
+  .drive .r { font-size: 20px; font-weight: 700; text-align: right; white-space: nowrap; }
+  .drive .r small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .drive .meta { font-size: 13px; color: var(--muted); }
+  .drive.off .r, .drive.off .main > div:first-child { color: var(--muted); text-decoration: line-through; }
+  h3.sub { font-size: 14px; margin: 18px 0 6px; color: var(--text); }
+  table.sim { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.sim th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  table.sim td { padding: 7px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.sim td.r, table.sim th.r { text-align: right; white-space: nowrap; }
+  .chartwrap { position: relative; width: 100%; }
+  canvas { width: 100%; height: 260px; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .seg { display: flex; background: var(--card2); border-radius: 10px; padding: 3px; margin-bottom: 8px; }
+  .seg button { flex: 1; background: none; border: 0; color: var(--muted); font: inherit; font-size: 14px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .seg button.active { background: var(--card); color: var(--text); font-weight: 600; }
+  .empty { text-align: center; color: var(--muted); padding: 24px 8px; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status b { color: var(--text); font-weight: 600; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #081214; color: var(--text); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 30;
+    opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+  .inline { display: flex; gap: 8px; }
+  .inline input { flex: 1; min-width: 0; }
+  .inline .btn { flex: 0 0 auto; }
+  .card.notice { border: 1px solid var(--accent); }
+  ul.plain { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+  ul.plain li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Akkuvahti</h1>
+  <button class="btn small" id="installBtn">Asenna</button>
+  <button class="iconbtn" id="syncBtn" aria-label="Päivitä ajot" title="Päivitä ajot">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 4v4h4M4 13a8 8 0 0 0 14.9 3.9M20 20v-4h-4"/></svg>
+  </button>
+</header>
+
+<main>
+  <!-- YHTEENVETO -->
+  <section class="view active" id="view-summary">
+    <div class="card notice" id="setupNotice" hidden>
+      <h2>Aloita</h2>
+      <p style="margin:0">Akkuvahti hakee ajot automaattisesti Polestar-palvelusta. Syötä ensin palvelun avain.</p>
+      <button class="btn primary block" data-goto="settings">Asetukset</button>
+    </div>
+    <div class="card">
+      <h2>Akun kunto ajojen perusteella</h2>
+      <div class="stats">
+        <div class="stat big"><div class="v" id="dIdx">–</div><div class="l" id="dIdxL">Toimintamatka suhteessa ensimmäisiin ajoihin</div></div>
+        <div class="stat"><div class="v" id="dRange">–</div><div class="l" id="dRangeL">Toimintamatka 100 %:n varauksella</div></div>
+        <div class="stat"><div class="v" id="dTrend">–</div><div class="l">Muutos / 10 000 km (trendi)</div></div>
+        <div class="stat"><div class="v small" id="dTemp">–</div><div class="l">Lämpötilan vaikutus (alle +15 °C)</div></div>
+        <div class="stat"><div class="v small" id="dSpeed">–</div><div class="l">Keskinopeuden vaikutus</div></div>
+      </div>
+      <p class="hint" id="dInfo"></p>
+      <p class="hint" id="dModel"></p>
+    </div>
+    <div class="card">
+      <h2>Toimintamatka ajoittain</h2>
+      <div class="seg" id="chartMode">
+        <button data-mode="km" class="active">km-lukema</button>
+        <button data-mode="date">Päivämäärä</button>
+      </div>
+      <div class="chartwrap"><canvas id="driveChart"></canvas></div>
+      <div class="legend">
+        <span id="lgNorm"><i style="background:var(--accent2)"></i>Vakioitu</span>
+        <span id="lgRaw"><i style="background:var(--accent2);opacity:.35"></i>Mitattu</span>
+        <span><i style="background:var(--muted)"></i>Ei trendiin</span>
+        <span><i style="background:var(--accent)"></i>Trendi</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Samankaltaisten ajojen vertailu</h2>
+      <p class="hint" style="margin-top:0">Jokaista ajoa verrataan aiempiin ajoihin, joiden keskilämpötila on ±3 °C ja keskinopeus ±7 km/h sisällä ja joiden välillä on ajettu vähintään 1 000 km. Toimintamatkan muutos näistä pareista kertoo kulumisesta ilman oletuksia lämpötilan tai nopeuden vaikutuksen muodosta.</p>
+      <div class="stats" style="margin-top:8px">
+        <div class="stat big"><div class="v" id="simTrend" style="font-size:21px">–</div><div class="l">Muutos / 10 000 km samankaltaisten ajojen pareista</div></div>
+      </div>
+      <p class="hint" id="simInfo"></p>
+      <div id="simTable"></div>
+    </div>
+    <div class="card">
+      <h2>Tiedonkeruu</h2>
+      <div class="status" id="syncStatus">–</div>
+    </div>
+  </section>
+
+  <!-- AJOT -->
+  <section class="view" id="view-drives">
+    <div class="card">
+      <h2>Ajot (<span id="drCount">0</span>)</h2>
+      <p class="hint" style="margin-top:0" id="drHint"></p>
+      <div id="driveList"></div>
+    </div>
+  </section>
+
+  <!-- ASETUKSET -->
+  <section class="view" id="view-settings">
+    <div class="card">
+      <h2>Polestar-palvelu</h2>
+      <label for="srvKey">Palvelun avain</label>
+      <div class="inline">
+        <input class="key" id="srvKey" type="password" autocomplete="off" spellcheck="false" placeholder="avain">
+        <button class="btn small" id="keyShow" type="button">Näytä</button>
+      </div>
+      <p class="hint">Avaimella pitää olla oikeudet <b>km</b> ja <b>akku</b>. Avain tallennetaan vain tähän puhelimeen.</p>
+      <button class="btn primary block" id="keySave">Tallenna ja hae ajot</button>
+      <details style="margin-top:12px">
+        <summary class="hint" style="cursor:pointer">Palvelun osoite</summary>
+        <input id="srvUrl" type="url" spellcheck="false" style="margin-top:8px">
+      </details>
+    </div>
+    <div class="card">
+      <h2>Laskentatapa</h2>
+      <ul class="plain">
+        <li>Ajot tunnistetaan auton lähettämistä tiedoista automaattisesti. Mukaan otetaan vain ajot, joissa varaus laskee vähintään <b id="rajaTxt">20</b> prosenttiyksikköä ilman latausta. Lyhyet, alle 15 minuutin pysähdykset yhdistetään samaan ajoon.</li>
+        <li>Toimintamatka 100 %:n varauksella = ajettu matka ÷ käytetty varaus × 100. Kun lämpötilan ja nopeuden vaikutus vakioidaan, toimintamatkan pieneneminen kertoo kapasiteetin pienenemisestä.</li>
+        <li>Ulkolämpötila on ajon ajan keskiarvo Open-Meteo-sääpalvelusta ajon alku- ja loppupaikassa.</li>
+        <li>Keskinopeus on auton oma ajokohtainen luku, kun se saadaan. Merkintä ≈ tarkoittaa, että nopeus on laskettu ajoajasta, ja se on yleensä hieman todellista pienempi.</li>
+        <li>Lataukset eivät ole mukana, koska ladattua energiaa ei saada automaattisesti. Niitä varten on erillinen Akun kapasiteetti -sovellus.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Tietosuoja</h2>
+      <p class="hint" style="margin-top:0">Akkuvahti ei käsittele sijainteja. Palvelu käyttää auton sijaintia vain lämpötilan hakemiseen, pyöristää sen noin kilometrin tarkkuuteen ennen lähettämistä Open-Meteoon ja palauttaa tänne vain lämpötilan. Ajot ja asetukset ovat vain tämän puhelimen muistissa.</p>
+    </div>
+    <div class="card">
+      <h2>Tiedot</h2>
+      <button class="btn block" id="resync" style="margin-top:0">Hae kaikki ajot uudelleen</button>
+      <button class="btn danger block" id="forget">Poista avain ja ajot tästä puhelimesta</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-view="summary" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10v4"/><path d="M6 13l2.5-2.5L11 13l3-3.5"/></svg>Kunto</button>
+  <button data-view="drives"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 17h14l-1.5-5.5A2 2 0 0 0 15.6 10H8.4a2 2 0 0 0-1.9 1.5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>Ajot</button>
+  <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Asetukset</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- Asetukset ja tallennus (vain tämä puhelin, etuliite akkuvahti-) ----------
+  var KEY_AVAIN = 'akkuvahti-avain';
+  var KEY_URL = 'akkuvahti-url';
+  var KEY_DATA = 'akkuvahti-data-v1';
+  var KEY_PREFS = 'akkuvahti-prefs-v1';
+  var OLETUS_URL = 'https://polestar-palvelu.tkoljonen.workers.dev';
+  var ALKUPAIVA = '2026-11-08';      // palvelu alkoi kerätä
+  var RAJA = 20;                      // varauksen lasku vähintään (%-yks.)
+  var JAKSO_PV = 62;                  // palvelun /v1/ajot-rajoitus
+
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function avain() { return (lsGet(KEY_AVAIN) || '').trim(); }
+  function palveluUrl() { return (lsGet(KEY_URL) || OLETUS_URL).replace(/\/+$/, ''); }
+  function emptyData() { return { ajot: {}, haettu: null, pois: {}, viimeisin: null, tila: null, virhe: null }; }
+  var data = (function () {
+    try { var d = JSON.parse(lsGet(KEY_DATA)); if (d && d.ajot) return Object.assign(emptyData(), d); } catch (e) {}
+    return emptyData();
+  })();
+  function save() { lsSet(KEY_DATA, JSON.stringify(data)); }
+  var prefs = (function () { try { return JSON.parse(lsGet(KEY_PREFS)) || {}; } catch (e) { return {}; } })();
+  function savePrefs() { lsSet(KEY_PREFS, JSON.stringify(prefs)); }
+
+  // ---------- Apurit ----------
+  function fmt(n, d) { return isFinite(n) ? n.toLocaleString('fi-FI', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function localDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function today() { return localDate(new Date()); }
+  function addDays(s, n) { var p = s.split('-'); return localDate(new Date(+p[0], +p[1] - 1, +p[2] + n)); }
+  function fmtDate(s) { var p = s.split('-'); return +p[2] + '.' + +p[1] + '.' + p[0]; }
+  function fmtTime(sek) { var d = new Date(sek * 1000); return d.getHours() + '.' + pad(d.getMinutes()); }
+  function fmtWhen(ms) { var d = new Date(ms); return d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + d.getHours() + '.' + pad(d.getMinutes()); }
+  var toastT;
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2800); }
+
+  // ---------- Haku palvelusta ----------
+  function api(polku) {
+    return fetch(palveluUrl() + polku, { headers: { Authorization: 'Bearer ' + avain() }, cache: 'no-store' })
+      .catch(function () { throw new Error('Palveluun ei saada yhteyttä. Tarkista verkkoyhteys.'); })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok) throw new Error(j.virhe || ('Palvelu vastasi HTTP ' + r.status));
+          return j;
+        });
+      });
+  }
+
+  // Ensimmäinen haettava päivä: viimeiset 3 pv aina uudelleen (keskeneräiset
+  // yhdistämiset, lämpötilat), ja lisäksi ajot, joilta lämpötila puuttuu (60 pv).
+  function hakuAlku() {
+    if (!data.haettu) return ALKUPAIVA;
+    var alku = addDays(data.haettu, -3);
+    var raja = addDays(today(), -60);
+    Object.keys(data.ajot).forEach(function (k) {
+      var a = data.ajot[k];
+      if (a.lampo_c == null && a.paiva >= raja && a.paiva < alku) alku = a.paiva;
+    });
+    return alku < ALKUPAIVA ? ALKUPAIVA : alku;
+  }
+
+  var syncing = false;
+  function sync(manual) {
+    if (syncing) return Promise.resolve();
+    if (!avain()) { if (manual) toast('Syötä ensin palvelun avain asetuksissa.'); render(); return Promise.resolve(); }
+    syncing = true; $('syncBtn').classList.add('spin');
+    var loppuPaiva = today();
+    var alku = hakuAlku();
+    var uudet = 0;
+    function jakso(a) {
+      if (a > loppuPaiva) return Promise.resolve();
+      var l = addDays(a, JAKSO_PV - 1); if (l > loppuPaiva) l = loppuPaiva;
+      return api('/v1/ajot?alku=' + a + '&loppu=' + l + '&min_kulutus=' + RAJA).then(function (j) {
+        // Korvataan jakson ajot (yhdistäminen ja lämpötilat voivat muuttua).
+        Object.keys(data.ajot).forEach(function (k) { var p = data.ajot[k].paiva; if (p >= a && p <= l) delete data.ajot[k]; });
+        (j.ajot || []).forEach(function (x) {
+          var id = x.tunniste;
+          if (!(id in data.ajot)) uudet++;
+          data.ajot[id] = {
+            id: id, paiva: (x.loppu_iso || '').slice(0, 10), alku: x.alku, loppu: x.loppu,
+            km_alku: x.km_alku, matka_km: x.matka_km, soc_alku: x.soc_alku, soc_loppu: x.soc_loppu,
+            nopeus: x.keskinopeus_kmh, nopeus_lahde: x.nopeus_lahde, lampo_c: x.lampo_c, osia: x.osia, tila: x.tila,
+          };
+        });
+        return jakso(addDays(l, 1));
+      });
+    }
+    return jakso(alku).then(function () {
+      data.haettu = loppuPaiva; data.viimeisin = Date.now(); data.virhe = null;
+      return api('/v1/tila').then(function (t) { data.tila = { keruu: t.viimeisin_onnistunut_keruu, virheet: (t.viimeiset_keruut || []).filter(function (k) { return k.virheet; }).length }; }).catch(function () {});
+    }).then(function () {
+      save(); if (manual) toast(uudet ? 'Uusia ajoja: ' + uudet : 'Ajot ovat ajan tasalla');
+    }).catch(function (e) {
+      data.virhe = e.message; save(); toast(e.message);
+    }).finally(function () {
+      syncing = false; $('syncBtn').classList.remove('spin'); render();
+    });
+  }
+
+  // ---------- Malli (siirretty Akun kapasiteetti -sovelluksesta) ----------
+  var KNEE = 15, T_MIN_N = 10, T_MIN_RANGE = 15, T_SPLIT = 10;
+  var REF_SPEED = 70, S_MIN_N = 8, S_MIN_RANGE = 20;
+  function hinge(t) { return Math.min(t - KNEE, 0); }
+  function hasTemp(d) { return typeof d.temp === 'number' && isFinite(d.temp); }
+  function drives() {
+    return Object.keys(data.ajot).map(function (k) {
+      var a = data.ajot[k];
+      return { id: a.id, date: a.paiva, t0: a.alku, t: a.loppu, odo: a.km_alku, dist: a.matka_km, socStart: a.soc_alku, socEnd: a.soc_loppu,
+        temp: a.lampo_c, speed: a.nopeus, speedSrc: a.nopeus_lahde, parts: a.osia, state: a.tila, off: !!data.pois[a.id] };
+    });
+  }
+  function dDelta(d) { return d.socStart - d.socEnd; }
+  function rangeOf(d) { var ds = dDelta(d); return ds > 0 && d.dist > 0 ? d.dist / ds * 100 : NaN; }
+  function driveValid(d) { return !d.off && d.state === 'ok' && dDelta(d) >= RAJA && isFinite(rangeOf(d)) && isFinite(d.speed) && d.speed > 0; }
+  function sortedDrives() { return drives().sort(function (a, b) { return (a.odo - b.odo) || (a.t - b.t); }); }
+
+  function invert(M) { // Gauss–Jordan osittaisella tuennalla
+    var n = M.length, A = M.map(function (r, i) { return r.concat(r.map(function (_, j) { return i === j ? 1 : 0; })); });
+    for (var c = 0; c < n; c++) {
+      var piv = c;
+      for (var r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+      if (Math.abs(A[piv][c]) < 1e-10) return null;
+      var tmp = A[c]; A[c] = A[piv]; A[piv] = tmp;
+      var d = A[c][c];
+      for (var j = 0; j < 2 * n; j++) A[c][j] /= d;
+      for (r = 0; r < n; r++) if (r !== c) {
+        var f = A[r][c];
+        if (f) for (j = 0; j < 2 * n; j++) A[r][j] -= f * A[c][j];
+      }
+    }
+    return A.map(function (r) { return r.slice(n); });
+  }
+  // Painotettu pienimmän neliösumman sovitus; palauttaa kertoimet ja keskivirheet.
+  function wls(X, y, w) {
+    var n = X.length, p = X[0].length, A = [], v = [], i, j;
+    for (i = 0; i < p; i++) { A.push(new Array(p).fill(0)); v.push(0); }
+    X.forEach(function (r, k) {
+      for (i = 0; i < p; i++) { v[i] += w[k] * r[i] * y[k]; for (j = 0; j < p; j++) A[i][j] += w[k] * r[i] * r[j]; }
+    });
+    var inv = invert(A); if (!inv) return null;
+    var beta = inv.map(function (r) { return r.reduce(function (s, x, j) { return s + x * v[j]; }, 0); });
+    var rss = 0;
+    X.forEach(function (r, k) { var res = y[k] - r.reduce(function (s, x, j) { return s + x * beta[j]; }, 0); rss += w[k] * res * res; });
+    var s2 = n > p ? rss / (n - p) : NaN;
+    return { beta: beta, se: inv.map(function (r, i) { return Math.sqrt(s2 * r[i]); }) };
+  }
+  function regression(pts) { // pts: [{x,y,w}]
+    if (pts.length < 2) return null;
+    var x0 = pts[0].x, sc = Math.abs(pts[pts.length - 1].x - x0) || 1;
+    var res = wls(pts.map(function (p) { return [1, (p.x - x0) / sc]; }), pts.map(function (p) { return p.y; }), pts.map(function (p) { return p.w || 1; }));
+    if (!res) return null;
+    return { slope: res.beta[1] / sc, intercept: res.beta[0] - res.beta[1] / sc * x0 };
+  }
+  function fitDrive(set, useT, useS) {
+    var p = 2 + (useT ? 1 : 0) + (useS ? 1 : 0);
+    if (set.length < p + 2) return null;
+    var kmSpan = set[set.length - 1].odo - set[0].odo;
+    if (kmSpan < 500) return null;
+    var X = set.map(function (d) {
+      var r = [1, d.odo / 10000];
+      if (useT) r.push(hinge(d.temp));
+      if (useS) r.push((d.speed - REF_SPEED) / 10);
+      return r;
+    });
+    var res = wls(X, set.map(rangeOf), set.map(dDelta)); if (!res) return null;
+    var m = { a: res.beta[0], b: res.beta[1] / 10000, useT: useT, useS: useS, c: 0, cSe: NaN, s: 0, sSe: NaN, kmSpan: kmSpan, odo0: set[0].odo };
+    var i = 2;
+    if (useT) { m.c = res.beta[i]; m.cSe = res.se[i]; i++; }
+    if (useS) { m.s = res.beta[i] / 10; m.sSe = res.se[i] / 10; }
+    return m;
+  }
+  function driveModel(valid) {
+    var info = { t: { n: 0, range: 0, cold: 0, warm: 0, state: 'data' }, s: { n: valid.length, range: 0, state: 'data' } };
+    var t = info.t, sp = info.s, withT = valid.filter(hasTemp);
+    t.n = withT.length;
+    if (withT.length) {
+      var temps = withT.map(function (d) { return d.temp; });
+      t.range = Math.max.apply(null, temps) - Math.min.apply(null, temps);
+      t.cold = temps.filter(function (x) { return x < T_SPLIT; }).length;
+      t.warm = t.n - t.cold;
+    }
+    if (valid.length) {
+      var speeds = valid.map(function (d) { return d.speed; });
+      sp.range = Math.max.apply(null, speeds) - Math.min.apply(null, speeds);
+    }
+    var canT = t.n >= T_MIN_N && t.range >= T_MIN_RANGE && t.cold >= 3 && t.warm >= 3;
+    var canS = sp.n >= S_MIN_N && sp.range >= S_MIN_RANGE;
+    var m = null;
+    if (canT || canS) {
+      var full = fitDrive(canT ? withT : valid, canT, canS);
+      if (full) {
+        var meanR = valid.reduce(function (s, d) { return s + rangeOf(d); }, 0) / valid.length;
+        var okT = false, okS = false;
+        if (canT) { t.c = full.c; t.cSe = full.cSe; okT = Math.abs(full.c) >= 2 * full.cSe && Math.abs(full.c) <= meanR * 0.03; t.state = okT ? 'on' : 'unsure'; }
+        if (canS) { sp.v = full.s; sp.se = full.sSe; okS = Math.abs(full.s) >= 2 * full.sSe; sp.state = okS ? 'on' : 'unsure'; }
+        m = (okT === canT && okS === canS) ? full : fitDrive(okT ? withT : valid, okT, okS);
+      }
+    }
+    if (!m) m = fitDrive(valid, false, false);
+    if ((!m || !m.useT) && t.state === 'on') t.state = 'unsure';
+    if ((!m || !m.useS) && sp.state === 'on') sp.state = 'unsure';
+    return { model: m, info: info };
+  }
+  function analyzeDrives() {
+    var ds = sortedDrives(), valid = ds.filter(driveValid);
+    var f = driveModel(valid), m = f.model;
+    ds.forEach(function (d) {
+      var r = rangeOf(d);
+      if (!driveValid(d)) { d._n = null; return; }
+      if (m && m.useT) { if (!hasTemp(d)) { d._n = null; return; } r -= m.c * hinge(d.temp); }
+      if (m && m.useS) r -= m.s * (d.speed - REF_SPEED);
+      d._n = r;
+    });
+    var scope = valid.filter(function (d) { return d._n !== null; });
+    var recent = scope.slice(-5), wsum = 0, rsum = 0;
+    recent.forEach(function (d) { var w = dDelta(d); wsum += w; rsum += d._n * w; });
+    var base = m ? m.a + m.b * m.odo0 : NaN;
+    return { ds: ds, valid: valid, scope: scope, range: wsum ? rsum / wsum : NaN, base: base, m: m, info: f.info, corrected: !!(m && (m.useT || m.useS)) };
+  }
+
+  // ---------- Samankaltaisten ajojen vertailu ----------
+  var TEMP_BINS = [[-Infinity, 0, '< 0 °C'], [0, 10, '0–10 °C'], [10, 20, '10–20 °C'], [20, Infinity, '> 20 °C']];
+  var SPEED_BINS = [[0, 50, '< 50 km/h'], [50, 80, '50–80 km/h'], [80, Infinity, '> 80 km/h']];
+  function binIdx(bins, v) { for (var i = 0; i < bins.length; i++) if (v >= bins[i][0] && v < bins[i][1]) return i; return -1; }
+  function classOf(d) {
+    var ti = binIdx(TEMP_BINS, d.temp), si = binIdx(SPEED_BINS, d.speed);
+    return { key: ti * 10 + si, label: TEMP_BINS[ti][2] + ' · ' + SPEED_BINS[si][2] };
+  }
+  var PAIR_DT = 3, PAIR_DV = 7, PAIR_MIN_KM = 1000;
+  // Parit: samankaltaiset olosuhteet, riittävä km-väli. Kulmakerroin b = Σw·Δy·Δx / Σw·Δx².
+  function pairSlope(items, skip) {
+    var sxy = 0, sxx = 0, wy = 0, w0 = 0, npairs = 0, used = {};
+    for (var i = 0; i < items.length; i++) {
+      if (i === skip) continue;
+      for (var j = i + 1; j < items.length; j++) {
+        if (j === skip) continue;
+        var a = items[i], b = items[j], dx = b.odo - a.odo;
+        if (Math.abs(dx) < PAIR_MIN_KM || Math.abs(a.temp - b.temp) > PAIR_DT || Math.abs(a.speed - b.speed) > PAIR_DV) continue;
+        var w = Math.min(dDelta(a), dDelta(b));
+        sxy += w * dx * (rangeOf(b) - rangeOf(a)); sxx += w * dx * dx;
+        wy += w * (rangeOf(a) + rangeOf(b)) / 2; w0 += w; npairs++; used[i] = used[j] = 1;
+      }
+    }
+    return { b: sxx > 0 ? sxy / sxx : NaN, meanR: w0 ? wy / w0 : NaN, pairs: npairs, drives: Object.keys(used).length };
+  }
+  function similarDrives(valid) {
+    var items = valid.filter(function (d) { return hasTemp(d) && d.speed > 0; });
+    var r = pairSlope(items, -1);
+    var res = { pairs: r.pairs, drives: r.drives, n: items.length, pct: NaN, pctSe: NaN, groups: [] };
+    if (isFinite(r.b) && r.drives >= 4) {
+      res.pct = r.b * 10000 / r.meanR * 100;
+      // Keskivirhe jackknifella (pois yksi ajo kerrallaan), koska parit eivät ole toisistaan riippumattomia
+      var vals = [];
+      items.forEach(function (_, k) { var q = pairSlope(items, k); if (isFinite(q.b)) vals.push(q.b * 10000 / q.meanR * 100); });
+      if (vals.length >= 3) {
+        var m = vals.reduce(function (s, v) { return s + v; }, 0) / vals.length;
+        res.pctSe = Math.sqrt((vals.length - 1) / vals.length * vals.reduce(function (s, v) { return s + (v - m) * (v - m); }, 0));
+      }
+    }
+    var groups = {};
+    items.forEach(function (d) {
+      var c = classOf(d);
+      var g = groups[c.key] = groups[c.key] || { key: c.key, label: c.label, n: 0, w: 0, sy: 0, last: null };
+      g.n++; g.w += dDelta(d); g.sy += dDelta(d) * rangeOf(d); g.last = d;
+    });
+    res.groups = Object.keys(groups).map(function (k) { var g = groups[k]; g.mean = g.sy / g.w; return g; }).sort(function (a, b) { return a.key - b.key; });
+    return res;
+  }
+
+  // ---------- Kuvaaja ----------
+  var chartMode = prefs.chartMode === 'date' ? 'date' : 'km';
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function niceStep(range, target) {
+    var raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  }
+  // pts = [{x, raw, n, ok, w}], line = {slope, intercept} tai null
+  function plot(cv, pts, line, corrected, isDate) {
+    var dpr = window.devicePixelRatio || 1;
+    var W = cv.clientWidth, H = cv.clientHeight;
+    if (!W) return;
+    cv.width = W * dpr; cv.height = H * dpr;
+    var ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    var muted = cssVar('--muted'), border = cssVar('--border'), blue = cssVar('--accent2');
+    ctx.font = '12px system-ui, sans-serif';
+    pts = pts.filter(function (p) { return isFinite(p.raw) && isFinite(p.x); });
+    if (!pts.length) {
+      ctx.fillStyle = muted; ctx.textAlign = 'center';
+      ctx.fillText('Ei vielä ajoja', W / 2, H / 2); return;
+    }
+    var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.raw; });
+    pts.forEach(function (p) { if (p.n !== null) ys.push(p.n); });
+    var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+    var padY = Math.max((yMax - yMin) * 0.1, 5); yMin -= padY; yMax += padY;
+    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+    if (xMax === xMin) { var xp = isDate ? 86400000 * 15 : 1000; xMin -= xp; xMax += xp; }
+    var L = 44, R = 10, T = 10, B = 26, pw = W - L - R, ph = H - T - B;
+    var X = function (v) { return L + (v - xMin) / (xMax - xMin) * pw; };
+    var Y = function (v) { return T + (1 - (v - yMin) / (yMax - yMin)) * ph; };
+    ctx.strokeStyle = border; ctx.lineWidth = 1; ctx.fillStyle = muted;
+    var ys_ = niceStep(yMax - yMin, 5);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (var y = Math.ceil(yMin / ys_) * ys_; y <= yMax; y += ys_) {
+      ctx.beginPath(); ctx.moveTo(L, Y(y)); ctx.lineTo(W - R, Y(y)); ctx.stroke();
+      ctx.fillText(fmt(y, ys_ < 1 ? 1 : 0), L - 6, Y(y));
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    if (!isDate) {
+      var xs_ = niceStep(xMax - xMin, Math.max(2, Math.floor(pw / 80)));
+      for (var x = Math.ceil(xMin / xs_) * xs_; x <= xMax; x += xs_) {
+        ctx.fillText(x >= 1000 ? fmt(x / 1000, xs_ < 100 ? 2 : xs_ < 1000 ? 1 : 0) + 'k' : fmt(x, 0), X(x), H - B + 6);
+      }
+    } else {
+      var nT = Math.max(2, Math.floor(pw / 90));
+      for (var i = 0; i <= nT; i++) {
+        var t = xMin + (xMax - xMin) * i / nT, d = new Date(t);
+        ctx.fillText(d.getDate() + '.' + (d.getMonth() + 1) + '.', X(t), H - B + 6);
+      }
+    }
+    if (isDate && line) {
+      line = regression(pts.filter(function (p) { return p.ok; }).sort(function (p, q) { return p.x - q.x; })
+        .map(function (p) { return { x: p.x, y: p.n, w: p.w }; }));
+    }
+    if (line) {
+      ctx.strokeStyle = cssVar('--accent'); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(X(xMin), Y(line.intercept + line.slope * xMin)); ctx.lineTo(X(xMax), Y(line.intercept + line.slope * xMax)); ctx.stroke();
+    }
+    pts.forEach(function (p) {
+      var px = X(p.x);
+      if (!p.ok) { ctx.fillStyle = muted; ctx.beginPath(); ctx.arc(px, Y(p.raw), 3, 0, Math.PI * 2); ctx.fill(); return; }
+      if (corrected) {
+        ctx.globalAlpha = 0.35; ctx.fillStyle = blue;
+        ctx.beginPath(); ctx.arc(px, Y(p.raw), 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = blue; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, Y(p.raw)); ctx.lineTo(px, Y(p.n)); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = blue; ctx.beginPath(); ctx.arc(px, Y(p.n), 4.5, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  // ---------- Näkymät ----------
+  function renderSimilar(valid) {
+    var r = similarDrives(valid);
+    if (isFinite(r.pct)) {
+      $('simTrend').textContent = (r.pct > 0 ? '+' : '') + fmt(r.pct, 1) + ' %' + (isFinite(r.pctSe) ? ' (± ' + fmt(r.pctSe, 1) + ')' : '');
+      $('simInfo').textContent = r.pairs + ' vertailuparia ' + r.drives + ' ajosta.' + (isFinite(r.pctSe) && Math.abs(r.pct) < 2 * r.pctSe ? ' Muutos ei ole vielä erotettavissa satunnaisvaihtelusta.' : '');
+    } else {
+      $('simTrend').textContent = 'kerätään dataa';
+      $('simInfo').textContent = 'Tulos lasketaan, kun samankaltaisia ajoja on vähintään neljä (nyt ' + r.drives + ' ajoa ' + r.pairs + ' parissa). Säännöllisesti toistuvat pitkät matkat kerryttävät pareja nopeimmin.';
+    }
+    if (!r.groups.length) { $('simTable').innerHTML = ''; return; }
+    $('simTable').innerHTML = '<table class="sim"><thead><tr><th>Olosuhteet</th><th class="r">Ajoja</th><th class="r">Toim.matka ka</th><th class="r">Viimeisin</th></tr></thead><tbody>' +
+      r.groups.map(function (g) {
+        return '<tr><td>' + esc(g.label) + '</td><td class="r">' + g.n + '</td><td class="r">' + fmt(g.mean, 0) + ' km</td><td class="r">' + fmt(rangeOf(g.last), 0) + ' km</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  function renderSummary() {
+    $('setupNotice').hidden = !!avain();
+    var a = analyzeDrives(), m = a.m, t = a.info.t, sp = a.info.s;
+    var refTxt = [m && m.useT ? '+15 °C' : '', m && m.useS ? REF_SPEED + ' km/h' : ''].filter(Boolean).join(', ');
+    $('dRange').textContent = isFinite(a.range) ? fmt(a.range, 0) + ' km' : '–';
+    $('dRangeL').textContent = 'Toimintamatka 100 %:n varauksella, viimeiset ajot' + (refTxt ? ' (vakioitu ' + refTxt + ')' : '');
+    if (m && isFinite(a.base) && a.base > 0) {
+      $('dIdx').textContent = fmt(a.range / a.base * 100, 1) + ' %';
+      var pct = m.b * 10000 / a.base * 100;
+      $('dTrend').textContent = (pct > 0 ? '+' : '') + fmt(pct, 1) + ' % (' + (m.b > 0 ? '+' : '') + fmt(m.b * 10000, 0) + ' km)';
+    } else { $('dIdx').textContent = '–'; $('dTrend').textContent = '–'; }
+    $('dIdxL').textContent = 'Toimintamatka suhteessa ensimmäisiin ajoihin' + (refTxt ? ', vakioitu ' + refTxt : '');
+    var info = [a.ds.length + ' ajoa, joista ' + a.scope.length + ' käytetään laskentaan.'];
+    if (!m) info.push('Trendi lasketaan, kun hyväksyttyjä ajoja on vähintään 4 ja niiden välillä vähintään 500 km.');
+    else if (m.kmSpan < 10000) info.push('Trendi on vielä epävarma lyhyen km-välin (' + fmt(m.kmSpan, 0) + ' km) vuoksi.');
+    $('dInfo').textContent = info.join(' ');
+    var mi = [];
+    if (t.state === 'on') {
+      $('dTemp').textContent = (m.c > 0 ? '−' : '+') + fmt(Math.abs(m.c), 1) + ' km / aste kylmempää';
+      mi.push('Lämpötilakorjaus on käytössä (± ' + fmt(m.cSe, 1) + ' km/°C).');
+    } else if (t.state === 'unsure') {
+      $('dTemp').textContent = 'ei selvää vaikutusta';
+      mi.push('Lämpötilan vaikutusta ei voitu erottaa luotettavasti, joten korjausta ei käytetä.');
+    } else {
+      $('dTemp').textContent = 'kerätään dataa';
+      mi.push('Lämpötilakorjaus otetaan käyttöön, kun ajoja lämpötilatiedolla on vähintään ' + T_MIN_N + ' (nyt ' + t.n + '), lämpötilat vaihtelevat vähintään ' + T_MIN_RANGE + ' °C (nyt ' + fmt(t.range, 0) + ' °C) ja sekä alle että yli +' + T_SPLIT + ' °C:n ajoja on vähintään 3 (nyt ' + t.cold + ' / ' + t.warm + ').');
+    }
+    if (sp.state === 'on') {
+      $('dSpeed').textContent = (m.s > 0 ? '+' : '−') + fmt(Math.abs(m.s * 10), 0) + ' km / +10 km/h';
+      mi.push('Nopeuskorjaus on käytössä (vertailunopeus ' + REF_SPEED + ' km/h).');
+    } else if (sp.state === 'unsure') {
+      $('dSpeed').textContent = 'ei selvää vaikutusta';
+      mi.push('Keskinopeuden vaikutusta ei voitu erottaa luotettavasti.');
+    } else {
+      $('dSpeed').textContent = 'kerätään dataa';
+      mi.push('Nopeuskorjaus otetaan käyttöön, kun ajoja on vähintään ' + S_MIN_N + ' (nyt ' + sp.n + ') ja keskinopeudet vaihtelevat vähintään ' + S_MIN_RANGE + ' km/h (nyt ' + fmt(sp.range, 0) + ' km/h).');
+    }
+    $('dModel').textContent = mi.join(' ');
+    renderSimilar(a.valid);
+    $('lgRaw').hidden = !a.corrected;
+    $('lgNorm').lastChild.textContent = a.corrected ? 'Vakioitu' : 'Ajo';
+    var isDate = chartMode === 'date';
+    plot($('driveChart'), a.ds.map(function (d) {
+      return { x: isDate ? d.t * 1000 : d.odo, raw: rangeOf(d), n: d._n, ok: driveValid(d) && d._n !== null, w: dDelta(d) };
+    }), m ? { slope: m.b, intercept: m.a } : null, a.corrected, isDate);
+    renderStatus();
+  }
+
+  function renderStatus() {
+    var s = [];
+    if (!avain()) s.push('Avain puuttuu.');
+    if (data.viimeisin) s.push('Ajot päivitetty <b>' + esc(fmtWhen(data.viimeisin)) + '</b>.');
+    if (data.tila && data.tila.keruu) s.push('Palvelu keräsi tiedot autosta viimeksi ' + esc(fmtWhen(Date.parse(data.tila.keruu))) + '.');
+    if (data.tila && data.tila.virheet) s.push('<span class="warnTxt">Palvelun viimeisissä keruissa oli virheitä (' + data.tila.virheet + ').</span>');
+    if (data.virhe) s.push('<span class="errTxt">' + esc(data.virhe) + '</span>');
+    $('syncStatus').innerHTML = s.join(' ') || '–';
+  }
+
+  var SRC_TXT = { auto: '', erotus: '', aika: '≈' };
+  function renderDrives() {
+    var ds = drives().sort(function (a, b) { return b.t - a.t; });
+    $('drCount').textContent = ds.length;
+    $('drHint').textContent = 'Ajot, joissa varaus laski vähintään ' + RAJA + ' %-yksikköä. Napauta ajoa jättääksesi sen pois laskennasta (esim. peräkärry tai poikkeava ajo).';
+    if (!ds.length) {
+      $('driveList').innerHTML = '<div class="empty">' + (avain() ? 'Ei vielä yhtään riittävän pitkää ajoa.' : 'Syötä palvelun avain asetuksissa.') + '</div>';
+      return;
+    }
+    $('driveList').innerHTML = ds.map(function (d) {
+      var ok = driveValid(d), notes = [];
+      if (d.off) notes.push('jätetty pois');
+      if (d.state === 'latausta') notes.push('latausta ajon aikana – ei mukana');
+      else if (d.state !== 'ok') notes.push('varaus puuttuu – ei mukana');
+      if (!hasTemp(d)) notes.push('lämpötila puuttuu');
+      if (!(d.speed > 0)) notes.push('keskinopeus puuttuu – ei mukana');
+      if (d.parts > 1) notes.push(d.parts + ' osaa');
+      return '<div class="drive' + (d.off ? ' off' : '') + '" data-id="' + esc(d.id) + '" role="button" tabindex="0">' +
+        '<div class="main"><div>' + esc(fmtDate(d.date)) + ' klo ' + (d.t0 ? fmtTime(d.t0) + '–' : '') + fmtTime(d.t) + ' · ' + fmt(d.dist, 1) + ' km</div>' +
+        '<div class="meta">Varaus ' + fmt(d.socStart, 0) + ' → ' + fmt(d.socEnd, 0) + ' % (−' + fmt(dDelta(d), 0) + ') · ' +
+        (d.speed > 0 ? SRC_TXT[d.speedSrc || ''] + fmt(d.speed, 0) + ' km/h' : '– km/h') + ' · ' +
+        (hasTemp(d) ? fmt(d.temp, 1) + ' °C' : '– °C') + ' · mittari ' + fmt(d.odo, 0) + ' km</div>' +
+        (notes.length ? '<div class="meta warnTxt">' + esc(notes.join(' · ')) + '</div>' : '') + '</div>' +
+        '<div class="r">' + fmt(rangeOf(d), 0) + ' km<small>' + (ok ? '100 %:lla' : 'ei laskennassa') + '</small></div></div>';
+    }).join('');
+  }
+
+  $('driveList').addEventListener('click', function (e) {
+    var el = e.target.closest('.drive'); if (!el) return;
+    var id = el.dataset.id;
+    if (data.pois[id]) delete data.pois[id]; else data.pois[id] = true;
+    save(); renderDrives();
+    toast(data.pois[id] ? 'Ajo jätetty pois laskennasta' : 'Ajo otettu mukaan laskentaan');
+  });
+
+  function renderSettings() {
+    $('srvKey').value = avain();
+    $('srvUrl').value = palveluUrl();
+    $('rajaTxt').textContent = RAJA;
+  }
+
+  function show(view) {
+    document.querySelectorAll('.view').forEach(function (v) { v.classList.toggle('active', v.id === 'view-' + view); });
+    document.querySelectorAll('nav.tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.view === view); });
+    prefs.view = view; savePrefs();
+    render();
+    window.scrollTo(0, 0);
+  }
+  function currentView() { var v = document.querySelector('.view.active'); return v ? v.id.replace('view-', '') : 'summary'; }
+  function render() {
+    var v = currentView();
+    if (v === 'summary') renderSummary();
+    else if (v === 'drives') renderDrives();
+    else renderSettings();
+  }
+
+  document.querySelectorAll('nav.tabs button').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.view); }); });
+  document.querySelectorAll('[data-goto]').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.goto); }); });
+  document.querySelectorAll('#chartMode button').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.mode === chartMode);
+    b.addEventListener('click', function () {
+      chartMode = b.dataset.mode; prefs.chartMode = chartMode; savePrefs();
+      document.querySelectorAll('#chartMode button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      renderSummary();
+    });
+  });
+  window.addEventListener('resize', function () { if (currentView() === 'summary') renderSummary(); });
+
+  $('syncBtn').addEventListener('click', function () { sync(true); });
+  $('keyShow').addEventListener('click', function () {
+    var k = $('srvKey'); k.type = k.type === 'password' ? 'text' : 'password';
+    $('keyShow').textContent = k.type === 'password' ? 'Näytä' : 'Piilota';
+  });
+  $('keySave').addEventListener('click', function () {
+    var k = $('srvKey').value.trim();
+    var u = $('srvUrl').value.trim().replace(/\/+$/, '');
+    if (!k) { toast('Syötä avain'); return; }
+    if (u && !/^https?:\/\//.test(u)) { toast('Osoitteen pitää alkaa https://'); return; }
+    var vaihtui = k !== avain() || (u || OLETUS_URL) !== palveluUrl();
+    lsSet(KEY_AVAIN, k);
+    lsSet(KEY_URL, u && u !== OLETUS_URL ? u : null);
+    if (vaihtui) { var pois = data.pois; data = emptyData(); data.pois = pois; save(); }
+    sync(true).then(function () { if (!data.virhe) show('summary'); });
+  });
+  $('resync').addEventListener('click', function () {
+    var pois = data.pois; data = emptyData(); data.pois = pois; save();
+    sync(true);
+  });
+  $('forget').addEventListener('click', function () {
+    if (!confirm('Poistetaanko avain, ajot ja poissulkemiset tästä puhelimesta? Palvelun tietoihin tämä ei vaikuta.')) return;
+    lsSet(KEY_AVAIN, null); lsSet(KEY_URL, null); lsSet(KEY_DATA, null);
+    data = emptyData(); render(); toast('Poistettu');
+  });
+
+  // Asennuspainike
+  function updInstall() { $('installBtn').style.display = window.__installPrompt ? 'inline-flex' : 'none'; }
+  document.addEventListener('installavailable', updInstall);
+  window.addEventListener('appinstalled', function () { window.__installPrompt = null; updInstall(); });
+  $('installBtn').addEventListener('click', function () {
+    var p = window.__installPrompt; if (!p) return;
+    p.prompt();
+    p.userChoice.finally(function () { window.__installPrompt = null; updInstall(); });
+  });
+  updInstall();
+
+  // Käynnistys: näytetään tallennetut ajot heti, haetaan uudet taustalla.
+  show(prefs.view === 'drives' || prefs.view === 'settings' ? prefs.view : 'summary');
+  sync(false);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && (!data.viimeisin || Date.now() - data.viimeisin > 10 * 60000)) sync(false);
+  });
+})();
+</script>
+</body>
+</html>
