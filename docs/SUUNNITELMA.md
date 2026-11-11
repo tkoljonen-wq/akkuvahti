@@ -97,6 +97,7 @@ localStorageen (`akkuvahti-data-v1`).
 |---|---|---|
 | 1 | Palvelu: `/v1/ajot`, `ajo_lampo`, testit | ✅ 11.11.2026, testattu paikallisesti oikealla datalla |
 | 2 | Akkuvahti-PWA | ✅ 11.11.2026, testattu paikallisesti |
-| 3 | Julkaisu: `schema.sql` D1:een, `wrangler deploy`, oma avain, GitHub Pages | odottaa |
+| 3 | Julkaisu: `ajo_lampo` D1:een, `wrangler deploy`, GitHub Pages | ✅ 11.11.2026, https://tkoljonen-wq.github.io/akkuvahti/ (repo `tkoljonen-wq/akkuvahti`) |
+| 4 | Avain sovellukseen (km + akku) | käyttäjä |
 
 Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta).
