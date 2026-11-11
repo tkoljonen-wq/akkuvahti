@@ -1,8 +1,8 @@
 # Akkuvahti — suunnitelma ja toteutus
 
-Täysin automaattinen PWA akun kunnon seurantaan ajojen perusteella.
-Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen,
-ja sillä arvioidaan lataukset.
+PWA akun kunnon seurantaan: ajot automaattisesti, lataukset automaattisesti
+listattuina ja kWh käsin. Osoite https://tkoljonen-wq.github.io/akkuvahti/.
+Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen.
 
 ## Päätökset
 
@@ -10,7 +10,7 @@ ja sillä arvioidaan lataukset.
 |---|---|
 | 11.11.2026 | Uusi ohjelma *Akkuvahti*, vanhaa ei muokata. |
 | 11.11.2026 | Vain ajot, joissa varaus laskee vähintään 20 %-yksikköä. Muut jätetään pois. |
-| 11.11.2026 | ~~Ei latauksia~~ → samana päivänä: lataukset listataan automaattisesti, kWh syötetään käsin halutessa. Laskennassa vain lataukset, joilla on kWh. |
+| 11.11.2026 | Lataukset listataan automaattisesti, kWh syötetään käsin halutessa. Laskennassa vain lataukset, joilla on kWh. |
 | 11.11.2026 | Ulkolämpötila mukana (Open-Meteo), auton sijainnista ja ajon ajalta. |
 | 11.11.2026 | Ajojen tunnistus ja lämpötila Polestar-palvelussa (`/v1/ajot`), PWA vain lukee. |
 
@@ -114,6 +114,7 @@ localStorageen (`akkuvahti-data-v1`).
 | 1 | Palvelu: `/v1/ajot`, `ajo_lampo`, testit | ✅ 11.11.2026, testattu paikallisesti oikealla datalla |
 | 2 | Akkuvahti-PWA | ✅ 11.11.2026, testattu paikallisesti |
 | 3 | Julkaisu: `ajo_lampo` D1:een, `wrangler deploy`, GitHub Pages | ✅ 11.11.2026, https://tkoljonen-wq.github.io/akkuvahti/ (repo `tkoljonen-wq/akkuvahti`) |
-| 4 | Avain sovellukseen (km + akku) | käyttäjä |
+| 4 | Avain sovellukseen: `akun-kunto` (km + akku) | ✅ 11.11.2026 |
+| 5 | Lataukset ja kWh-syöttö, julkaistu ja todettu toimivaksi | ✅ 11.11.2026 |
 
 Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta).
