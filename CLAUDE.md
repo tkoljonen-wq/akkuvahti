@@ -10,8 +10,11 @@ Lue ennen muutoksia: `docs/SUUNNITELMA.md` ja palvelun `docs/API.md`.
 ## Pysyvät linjaukset (käyttäjän päätökset 11.11.2026)
 
 * Vain ajot, joissa varaus laskee vähintään 20 %-yksikköä (`RAJA`).
-* Ei latauksia: kWh:ta ei saada automaattisesti. Lataukset arvioidaan
-  vanhalla Akun kapasiteetti -sovelluksella, jota **ei muuteta**.
+* Lataukset (lisätty 11.11.2026): lista tulee palvelusta (`/v1/lataukset?tapa=kytkenta`,
+  AC/DC autolta), kWh syötetään käsin halutessa. Laskennassa vain lataukset,
+  joilla on kWh ja varauksen nousu ≥ 20. kWh:t, kapasiteetti uutena ja
+  poissulut ovat vain localStoragessa → varmuuskopio JSON-tiedostona.
+* Vanhaa Akun kapasiteetti -sovellusta **ei muuteta**.
 * Lämpötila mukana (Open-Meteo palvelun kautta). Sovellus ei käsittele
   sijainteja eikä avaimella ole sijaintioikeutta.
 * Käyttöliittymä suomeksi, optimoitu Android-puhelimelle.

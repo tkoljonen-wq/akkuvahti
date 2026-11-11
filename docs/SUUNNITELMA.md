@@ -10,7 +10,7 @@ ja sillä arvioidaan lataukset.
 |---|---|
 | 11.11.2026 | Uusi ohjelma *Akkuvahti*, vanhaa ei muokata. |
 | 11.11.2026 | Vain ajot, joissa varaus laskee vähintään 20 %-yksikköä. Muut jätetään pois. |
-| 11.11.2026 | Ei latauksia, koska ladattua energiaa (kWh) ei saada automaattisesti mistään. |
+| 11.11.2026 | ~~Ei latauksia~~ → samana päivänä: lataukset listataan automaattisesti, kWh syötetään käsin halutessa. Laskennassa vain lataukset, joilla on kWh. |
 | 11.11.2026 | Ulkolämpötila mukana (Open-Meteo), auton sijainnista ja ajon ajalta. |
 | 11.11.2026 | Ajojen tunnistus ja lämpötila Polestar-palvelussa (`/v1/ajot`), PWA vain lukee. |
 
@@ -74,6 +74,22 @@ Open-Meteon tuntilämpötiloista keskiarvo ajon ajalta (10 min välein
 interpoloituna) alku- ja loppupaikassa, paikkojen keskiarvo. Koordinaatit
 pyöristetään 2 desimaaliin. Yli 80 pv vanhat arkistorajapinnasta.
 Tallennetaan vain lämpötila tauluun `ajo_lampo` (tunniste = alku-loppu).
+
+## Lataukset
+
+* Palvelu: `/v1/lataukset?tapa=kytkenta` (`tunnistaKytkennat`, `src/johdetut.js`).
+  Yksi lataus = kaapeli kiinni → irti, koska kotilaturin ja latausaseman
+  kWh-lukema on koko kytkennältä (ajastetun latauksen tauot mukana).
+  AC/DC tulee autolta (`chargingType`). Varaus ennen = viimeisin näyte ennen
+  kytkentää, jälkeen = suurin varaus kytkennän aikana. Lämpötila 6 h
+  keskiarvo ennen latauksen loppua (kuten vanhassa sovelluksessa).
+* Sovellus: Lataukset-välilehti, kWh-kenttä jokaisella rivillä (pilkku tai
+  piste). Malli vanhasta sovelluksesta: kapasiteetti = kWh ÷ Δvaraus × 100,
+  painotettu regressio km:n mukaan, AC/DC-vakiointi kun kumpaakin ≥ 3,
+  lämpötilakorjaus kun dataa riittää. SOH = kapasiteetti ÷ kapasiteetti uutena
+  (asetus). Varmuuskopio JSON (kWh, kapasiteetti, poissulut; ei avainta).
+* Havainto 11.11.: kolme kytkentää — AC 73→100 % (10.–11.11. yö), DC 42→67 %,
+  AC 6→18 % (irrotettu kesken).
 
 ## Sovellus
 
