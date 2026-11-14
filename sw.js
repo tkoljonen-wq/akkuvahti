@@ -1,7 +1,7 @@
 // Network first: haetaan aina ensin verkosta, välimuistia käytetään vain offline-tilassa.
 // Jaettu origin (tkoljonen-wq.github.io): käsitellään vain omalla etuliitteellä nimettyjä välimuisteja.
 const CACHE_PREFIX = 'akkuvahti-';
-const CACHE_NAME = CACHE_PREFIX + 'v1';
+const CACHE_NAME = CACHE_PREFIX + 'v2';
 const ASSETS = [
   './',
   './index.html',

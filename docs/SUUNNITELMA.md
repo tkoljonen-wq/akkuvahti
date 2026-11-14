@@ -13,6 +13,9 @@ Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen.
 | 11.11.2026 | Lataukset listataan automaattisesti, kWh syötetään käsin halutessa. Laskennassa vain lataukset, joilla on kWh. |
 | 11.11.2026 | Ulkolämpötila mukana (Open-Meteo), auton sijainnista ja ajon ajalta. |
 | 11.11.2026 | Ajojen tunnistus ja lämpötila Polestar-palvelussa (`/v1/ajot`), PWA vain lukee. |
+| 14.11.2026 | Kylmän lähdön lämmityslisä vähennetään varauksen laskusta: alustava kaava heti (0,35 %-yks/°C alle +10 °C, tauon aikavakio 3 h), kerroin opitaan ajoista. Pois-kytkin asetuksissa. [LAMMITYSKORJAUS.md](LAMMITYSKORJAUS.md) |
+| 14.11.2026 | Esilämmitys kerätään palveluun (`parking-climatization`); auton kulutusmittarin kWh näytetään ajoissa. |
+| 14.11.2026 | Lämpimästä hallista lähteneet ajot (palvelun `lammin_paikka`, oletuksena työpaikka, tai Halli-merkintä) jätetään kokonaan pois lämmityskorjauksesta ja oppimisesta, koska hallin lämpötila vaihtelee. |
 
 ## Arkkitehtuuri
 
@@ -97,11 +100,16 @@ Tallennetaan vain lämpötila tauluun `ajo_lampo` (tunniste = alku-loppu).
   trendi / 10 000 km, lämpötilan ja nopeuden vaikutus, kuvaaja (km tai pvm),
   samankaltaisten ajojen vertailu, tiedonkeruun tila.
 * **Ajot:** lista; napautus jättää ajon pois laskennasta (tallentuu puhelimeen).
-* **Asetukset:** avain, palvelun osoite, laskentatapa, tietosuoja, tietojen poisto.
+  Rivillä tauko ennen ajoa, edeltävä lataus, lämmityslisä ja auton mittarin kWh;
+  Halli-painike merkitsee lähdön lämpimästä hallista (tallentuu puhelimeen).
+* **Asetukset:** avain, palvelun osoite, lämmityskorjaus (automaattinen / pois),
+  laskentatapa, tietosuoja, tietojen poisto.
 
 Malli on siirretty vanhasta sovelluksesta sellaisenaan: painotettu
 regressio (paino = varauksen lasku), lämpötilan polvi +15 °C,
-nopeusvakiointi 70 km/h, korjaukset vain kun data riittää.
+nopeusvakiointi 70 km/h, korjaukset vain kun data riittää. Lämmityslisä
+(14.11.2026) vähennetään varauksen laskusta ennen sovitusta; alustava kaava on
+käytössä, kunnes kerroin on opittu — ks. [LAMMITYSKORJAUS.md](LAMMITYSKORJAUS.md).
 
 Haku: ensimmäisellä kerralla 8.11.2026 alkaen 62 pv:n jaksoissa, sen jälkeen
 viimeiset 3 pv ja ajot, joilta lämpötila puuttuu (60 pv). Ajot tallennetaan
@@ -116,5 +124,8 @@ localStorageen (`akkuvahti-data-v1`).
 | 3 | Julkaisu: `ajo_lampo` D1:een, `wrangler deploy`, GitHub Pages | ✅ 11.11.2026, https://tkoljonen-wq.github.io/akkuvahti/ (repo `tkoljonen-wq/akkuvahti`) |
 | 4 | Avain sovellukseen: `akun-kunto` (km + akku) | ✅ 11.11.2026 |
 | 5 | Lataukset ja kWh-syöttö, julkaistu ja todettu toimivaksi | ✅ 11.11.2026 |
+| 6 | Lämmityskorjaus: palvelun kentät ja esilämmityksen keruu, sovelluksen malli ja asetus | ✅ 14.11.2026 palvelu julkaistu, sovellus testattu paikallisesti |
 
-Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta).
+Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta);
+kapasiteetti auton kulutusmittarista (`kwh_auto`) Lataukset-mallin rinnalle
+ilman käsin syötettyjä kWh:ta (ks. LAMMITYSKORJAUS.md luku 6).

@@ -5,7 +5,7 @@ ajoista. Data tulee Polestar-palvelusta (`C:\ohjelmat\Polestar-palvelu`,
 `GET /v1/ajot`), joka tunnistaa ajot ja hakee ulkolämpötilan. Sovellus ei
 kirjoita palveluun mitään.
 
-Lue ennen muutoksia: `docs/SUUNNITELMA.md` ja palvelun `docs/API.md`.
+Lue ennen muutoksia: `docs/SUUNNITELMA.md`, `docs/LAMMITYSKORJAUS.md` ja palvelun `docs/API.md`.
 
 ## Pysyvät linjaukset (käyttäjän päätökset 11.11.2026)
 
@@ -14,6 +14,13 @@ Lue ennen muutoksia: `docs/SUUNNITELMA.md` ja palvelun `docs/API.md`.
   AC/DC autolta), kWh syötetään käsin halutessa. Laskennassa vain lataukset,
   joilla on kWh ja varauksen nousu ≥ 20. kWh:t, kapasiteetti uutena ja
   poissulut ovat vain localStoragessa → varmuuskopio JSON-tiedostona.
+* Lämmityskorjaus (lisätty 14.11.2026): kylmän lähdön lämmityslisä vähennetään
+  varauksen laskusta; alustava kaava on käytössä, kunnes kerroin on opittu
+  (≥ 4 kylmää ja ≥ 4 lämmintä lähtöä). Pois-kytkin asetuksissa
+  (`akkuvahti-prefs-v1`, `heat`). Palvelu antaa `tauko_ennen_s`, `lataus_ennen`,
+  `esilammitys`, `tauko_talli` ja `kwh_auto`. Hallista lähteneet ajot
+  (`tauko_talli` tai käsin `data.talli`) eivät ole mukana korjauksessa eivätkä
+  oppimisessa. Perustelut: `docs/LAMMITYSKORJAUS.md`.
 * Vanhaa Akun kapasiteetti -sovellusta **ei muuteta**.
 * Lämpötila mukana (Open-Meteo palvelun kautta). Sovellus ei käsittele
   sijainteja eikä avaimella ole sijaintioikeutta.
@@ -37,3 +44,5 @@ Palvelu paikallisena (projektin `Polestar-palvelu` juuresta), PWA esim.
 
 Palvelun osoitteen voi vaihtaa Asetukset → Palvelun osoite (tallentuu
 `akkuvahti-url`). Varmista testin jälkeen, ettei `wrangler`/`workerd` jää päälle.
+Tällä koneella `.claude/launch.json` (gitignore) käynnistää molemmat (`pwa`,
+`palvelu`); paikalliseen D1:een saa oikean datan viemällä taulut `--remote`-kannasta.

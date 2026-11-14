@@ -62,12 +62,12 @@
   .stat.big .v { font-size: 34px; color: var(--accent); }
   .stat .v.small { font-size: 16px; }
   label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
-  input {
+  input, select {
     width: 100%; font: inherit; color: var(--text);
     background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
     padding: 12px; min-height: 48px;
   }
-  input:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+  input:focus, select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
   input.key { font-family: ui-monospace, Consolas, monospace; font-size: 15px; }
   [hidden] { display: none !important; }
   .btn {
@@ -177,6 +177,7 @@
         <div class="stat"><div class="v" id="dTrend">–</div><div class="l">Muutos / 10 000 km (trendi)</div></div>
         <div class="stat"><div class="v small" id="dTemp">–</div><div class="l">Lämpötilan vaikutus (alle +15 °C)</div></div>
         <div class="stat"><div class="v small" id="dSpeed">–</div><div class="l">Keskinopeuden vaikutus</div></div>
+        <div class="stat big"><div class="v small" id="dHeat">–</div><div class="l">Lämmityslisä kylmän lähdön jälkeen (0 °C, 12 h tauko)</div></div>
       </div>
       <p class="hint" id="dInfo"></p>
       <p class="hint" id="dModel"></p>
@@ -272,6 +273,15 @@
       <p class="hint">Käytetään latauksiin perustuvan kunnon (SOH) laskemiseen. Sama luku kuin Akun kapasiteetti -sovelluksessa.</p>
     </div>
     <div class="card">
+      <h2>Lämmityskorjaus</h2>
+      <label for="heatMode">Kylmän lähdön lämmityslisä</label>
+      <select id="heatMode">
+        <option value="auto">Automaattinen (alustava kaava, opitaan ajoista)</option>
+        <option value="off">Pois käytöstä</option>
+      </select>
+      <p class="hint">Pitkän tauon jälkeen kylmässä osa varauksesta kuluu akun ja ohjaamon lämmitykseen, ei ajamiseen. Lisä vähennetään varauksen laskusta ennen toimintamatkan laskemista: 0,35 %-yksikköä jokaista astetta kohti alle +10 °C, täysi 12 tunnin tauon jälkeen (tunnin tauon jälkeen 28 %). Kerroin opitaan ajoista, kun kylmiä ja lämpimiä lähtöjä on kumpiakin vähintään 4. Pikalataus lämmittää akun, ja esilämmitys poistaa lisän. Lähdöt lämpimästä hallista (palveluun asetetut paikat tai ajolistan Halli-merkintä) jätetään kokonaan pois korjauksesta ja oppimisesta, koska hallin lämpötila vaihtelee.</p>
+    </div>
+    <div class="card">
       <h2>Laskentatapa</h2>
       <ul class="plain">
         <li>Ajot tunnistetaan auton lähettämistä tiedoista automaattisesti. Mukaan otetaan vain ajot, joissa varaus laskee vähintään <b class="rajaTxt">20</b> prosenttiyksikköä ilman latausta. Lyhyet, alle 15 minuutin pysähdykset yhdistetään samaan ajoon.</li>
@@ -280,15 +290,16 @@
         <li>Keskinopeus on auton oma ajokohtainen luku, kun se saadaan. Merkintä ≈ tarkoittaa, että nopeus on laskettu ajoajasta, ja se on yleensä hieman todellista pienempi.</li>
         <li>Latauksiin perustuva kapasiteetti = syötetty kWh ÷ varauksen nousu × 100. Mittaus sisältää latauksen häviöt, joten AC- ja DC-lataukset vakioidaan toisiinsa, kun kumpaakin on vähintään 3. Lämpötila on 6 tunnin keskiarvo ennen latauksen loppua latauspaikassa.</li>
         <li>Ladattua energiaa ei saada autosta, joten kWh syötetään käsin. Tieto AC- tai DC-latauksesta tulee autolta.</li>
+        <li>Ajolistan kWh (auton mittari) on auton oman kulutusmittarin lukema ajolle: käsin nollattavan osamatkan keskikulutus × osamatka. Tarkkuus noin ±0,5 kWh. Puuttuu, jos osamatka nollattiin kesken ajon.</li>
       </ul>
     </div>
     <div class="card">
       <h2>Tietosuoja</h2>
-      <p class="hint" style="margin-top:0">Akkuvahti ei käsittele sijainteja. Palvelu käyttää auton sijaintia vain lämpötilan hakemiseen, pyöristää sen noin kilometrin tarkkuuteen ennen lähettämistä Open-Meteoon ja palauttaa tänne vain lämpötilan. Ajot, lataukset, kWh-lukemat ja asetukset ovat vain tämän puhelimen muistissa.</p>
+      <p class="hint" style="margin-top:0">Akkuvahti ei käsittele sijainteja. Palvelu käyttää auton sijaintia vain lämpötilan hakemiseen (pyöristettynä noin kilometrin tarkkuuteen ennen lähettämistä Open-Meteoon) ja lämpimän hallin tunnistamiseen, ja palauttaa tänne vain lämpötilan ja tiedon hallista. Ajot, lataukset, kWh-lukemat ja asetukset ovat vain tämän puhelimen muistissa.</p>
     </div>
     <div class="card">
       <h2>Tiedot</h2>
-      <p class="hint" style="margin-top:0">Syöttämäsi kWh-lukemat, akun kapasiteetti ja poissulkemiset ovat vain tässä puhelimessa. Ota niistä varmuuskopio.</p>
+      <p class="hint" style="margin-top:0">Syöttämäsi kWh-lukemat, akun kapasiteetti, poissulkemiset ja hallimerkinnät ovat vain tässä puhelimessa. Ota niistä varmuuskopio.</p>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn" id="expBtn" style="flex:1">Vie varmuuskopio</button>
         <button class="btn" id="impBtn" style="flex:1">Tuo varmuuskopio</button>
@@ -327,16 +338,18 @@
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
   function avain() { return (lsGet(KEY_AVAIN) || '').trim(); }
   function palveluUrl() { return (lsGet(KEY_URL) || OLETUS_URL).replace(/\/+$/, ''); }
-  function emptyData() { return { ajot: {}, lataukset: {}, haettu: null, pois: {}, kwh: {}, capNew: null, viimeisin: null, tila: null, virhe: null }; }
+  function emptyData() { return { ajot: {}, lataukset: {}, haettu: null, pois: {}, kwh: {}, talli: {}, capNew: null, viimeisin: null, tila: null, virhe: null }; }
   // Käyttäjän omat tiedot säilyvät, kun haetut tiedot nollataan.
-  function resetFetched() { var d = emptyData(); d.pois = data.pois; d.kwh = data.kwh; d.capNew = data.capNew; data = d; save(); }
+  function resetFetched() { var d = emptyData(); d.pois = data.pois; d.kwh = data.kwh; d.talli = data.talli; d.capNew = data.capNew; data = d; save(); }
   var data = (function () {
     try {
       var d = JSON.parse(lsGet(KEY_DATA));
       if (d && d.ajot) {
         // Versio ilman latauksia: haetaan kaikki alusta, jotta vanhatkin lataukset tulevat.
         if (!d.lataukset) d.haettu = null;
-        d = Object.assign(emptyData(), d); d.lataukset = d.lataukset || {}; d.kwh = d.kwh || {}; return d;
+        // Versio ilman taukotietoa (lämmityskorjaus): haetaan ajot uudelleen.
+        if (Object.keys(d.ajot).some(function (k) { return !('tauko' in d.ajot[k]) || !('talli' in d.ajot[k]); })) d.haettu = null;
+        d = Object.assign(emptyData(), d); d.lataukset = d.lataukset || {}; d.kwh = d.kwh || {}; d.talli = d.talli || {}; return d;
       }
     } catch (e) {}
     return emptyData();
@@ -408,6 +421,9 @@
             id: id, paiva: (x.loppu_iso || '').slice(0, 10), alku: x.alku, loppu: x.loppu,
             km_alku: x.km_alku, matka_km: x.matka_km, soc_alku: x.soc_alku, soc_loppu: x.soc_loppu,
             nopeus: x.keskinopeus_kmh, nopeus_lahde: x.nopeus_lahde, lampo_c: x.lampo_c, osia: x.osia, tila: x.tila,
+            tauko: x.tauko_ennen_s == null ? null : x.tauko_ennen_s, lataus_ennen: x.lataus_ennen || null,
+            esilammitys: x.esilammitys == null ? null : x.esilammitys, talli: x.tauko_talli == null ? null : x.tauko_talli,
+            kwh_auto: x.kwh_auto == null ? null : x.kwh_auto, kwh_auto_virhe: x.kwh_auto_virhe == null ? null : x.kwh_auto_virhe,
           };
         });
         return api('/v1/lataukset?tapa=kytkenta&alku=' + a + '&loppu=' + l);
@@ -438,17 +454,48 @@
   // ---------- Malli (siirretty Akun kapasiteetti -sovelluksesta) ----------
   var KNEE = 15, T_MIN_N = 10, T_MIN_RANGE = 15, T_SPLIT = 10;
   var REF_SPEED = 70, S_MIN_N = 8, S_MIN_RANGE = 20;
+  // Lämmityskorjaus (kylmä lähtö), ks. docs/LAMMITYSKORJAUS.md
+  var T_H = 10;                     // lämmitystarvetta vain tämän alapuolella (°C)
+  var TAU_H = 3;                    // tauon aikavakio (h): 1 h → 28 %, 12 h → 98 % täydestä lisästä
+  var H_PRIOR = 0.35;               // alkuarvo: %-yks per °C alle T_H:n pitkän tauon jälkeen
+  var H_MIN_N = 4;                  // kylmiä (q ≥ H_COLD) ja lämpimiä (q ≤ H_WARM) lähtöjä ennen oppimista
+  var H_COLD = 5, H_WARM = 2, H_MAX = 1.0, H_SHARE = 0.25;
   function hinge(t) { return Math.min(t - KNEE, 0); }
   function hasTemp(d) { return typeof d.temp === 'number' && isFinite(d.temp); }
   function drives() {
     return Object.keys(data.ajot).map(function (k) {
       var a = data.ajot[k];
       return { id: a.id, date: a.paiva, t0: a.alku, t: a.loppu, odo: a.km_alku, dist: a.matka_km, socStart: a.soc_alku, socEnd: a.soc_loppu,
-        temp: a.lampo_c, speed: a.nopeus, speedSrc: a.nopeus_lahde, parts: a.osia, state: a.tila, off: !!data.pois[a.id] };
+        temp: a.lampo_c, speed: a.nopeus, speedSrc: a.nopeus_lahde, parts: a.osia, state: a.tila,
+        pause: a.tauko, chargeBefore: a.lataus_ennen || null, preheated: a.esilammitys, kwhAuto: a.kwh_auto, kwhErr: a.kwh_auto_virhe,
+        hallAuto: a.talli === true, hall: (a.id in data.talli) ? !!data.talli[a.id] : a.talli === true,
+        off: !!data.pois[a.id] };
     });
   }
   function dDelta(d) { return d.socStart - d.socEnd; }
-  function rangeOf(d) { var ds = dDelta(d); return ds > 0 && d.dist > 0 ? d.dist / ds * 100 : NaN; }
+  function rangeRaw(d) { var ds = dDelta(d); return ds > 0 && d.dist > 0 ? d.dist / ds * 100 : NaN; }
+  // Toimintamatka, kun lämmityslisä (d._H, %-yks) on vähennetty varauksen laskusta.
+  function rangeOf(d) { var ds = dDelta(d) - (d._H || 0); return ds > 0 && d.dist > 0 ? d.dist / ds * 100 : NaN; }
+  // Tehollinen tauko tunteina: pikalataus (DC) lämmittää akun, esilämmitys tekee lähdöstä lämpimän.
+  function pauseH(d) {
+    if (d.preheated === true) return 0;
+    if (!(d.pause >= 0)) return NaN;
+    var p = d.pause, t0 = d.t0 || d.t;
+    if (d.chargeBefore && d.chargeBefore.tyyppi === 'DC' && d.chargeBefore.loppu) p = Math.min(p, Math.max(0, t0 - d.chargeBefore.loppu));
+    return p / 3600;
+  }
+  // Lämmitystarve q: asteet alle T_H:n × tauon kyllästyminen (0 = lämmin lähtö).
+  function heatQ(d) {
+    if (d.hall || !hasTemp(d)) return NaN;
+    var p = pauseH(d); if (!isFinite(p)) return NaN;
+    return Math.max(0, T_H - d.temp) * (1 - Math.exp(-p / TAU_H));
+  }
+  // Lämmityslisä %-yksikköinä kertoimella h, enintään H_SHARE varauksen laskusta.
+  function heatH(h, d) {
+    var q = heatQ(d); if (!isFinite(q) || !(h > 0)) return 0;
+    return Math.min(h * q, H_SHARE * dDelta(d));
+  }
+  function fmtPause(s) { return s < 3600 ? Math.round(s / 60) + ' min' : fmt(s / 3600, s < 36000 ? 1 : 0) + ' h'; }
   function driveValid(d) { return !d.off && d.state === 'ok' && dDelta(d) >= RAJA && isFinite(rangeOf(d)) && isFinite(d.speed) && d.speed > 0; }
   function sortedDrives() { return drives().sort(function (a, b) { return (a.odo - b.odo) || (a.t - b.t); }); }
 
@@ -539,12 +586,54 @@
     if ((!m || !m.useS) && sp.state === 'on') sp.state = 'unsure';
     return { model: m, info: info };
   }
+  // Kylmien (q ≥ H_COLD) ja lämpimien (q ≤ H_WARM) lähtöjen määrät.
+  function heatCounts(valid) {
+    var r = { n: 0, cold: 0, warm: 0, hall: 0 };
+    valid.forEach(function (d) { if (d.hall) r.hall++; var q = heatQ(d); if (!isFinite(q)) return; r.n++; if (q >= H_COLD) r.cold++; else if (q <= H_WARM) r.warm++; });
+    return r;
+  }
+  function predictRange(m, d) { return m.a + m.b * d.odo + (m.useT ? m.c * hinge(d.temp) : 0) + (m.useS ? m.s * (d.speed - REF_SPEED) : 0); }
+  // Lämmityskertoimen oppiminen: jäännökset varausyksiköissä e = Δvaraus − matka ÷ R̂ × 100,
+  // painotettu sovitus origon kautta h = Σw·e·q ÷ Σw·q² (paino = varauksen lasku).
+  function learnH(set, m) {
+    var sxy = 0, sxx = 0, pts = [];
+    set.forEach(function (d) {
+      var q = heatQ(d), R = predictRange(m, d);
+      if (!isFinite(q) || !(R > 0)) return;
+      var e = dDelta(d) - d.dist / R * 100, w = dDelta(d);
+      sxy += w * e * q; sxx += w * q * q; pts.push({ e: e, q: q, w: w });
+    });
+    if (!(sxx > 0) || pts.length < 3) return null;
+    var h = sxy / sxx, rss = 0;
+    pts.forEach(function (p) { var r = p.e - h * p.q; rss += p.w * r * r; });
+    return { h: h, se: Math.sqrt(rss / (pts.length - 1) / sxx), n: pts.length };
+  }
   function analyzeDrives() {
     var ds = sortedDrives(), valid = ds.filter(driveValid);
-    var f = driveModel(valid), m = f.model;
+    var hs = heatCounts(valid), off = prefs.heat === 'off';
+    hs.state = off ? 'off' : 'data'; hs.value = off ? 0 : H_PRIOR; hs.h = NaN; hs.se = NaN;
+    // Kun lisä on käytössä, malliin otetaan vain ajot, joille lämmitystarve voidaan laskea.
+    var withQ = valid.filter(function (d) { return isFinite(heatQ(d)); });
+    var fitSet = function () { return hs.value > 0 ? withQ : valid; };
+    var applyH = function () { valid.forEach(function (d) { d._H = heatH(hs.value, d); }); };
+    var f, est = null;
+    if (!off && hs.cold >= H_MIN_N && hs.warm >= H_MIN_N) {
+      for (var it = 0; it < 3; it++) {
+        applyH(); f = driveModel(fitSet());
+        est = f.model ? learnH(withQ, f.model) : null;
+        if (!est) break;
+        hs.value = Math.max(0, Math.min(H_MAX, est.h));
+      }
+      if (est) { hs.h = est.h; hs.se = est.se; }
+      if (est && est.h > 0 && est.h <= H_MAX && est.h >= 2 * est.se) { hs.state = 'on'; hs.value = est.h; }
+      else { hs.state = 'unsure'; hs.value = 0; }
+    }
+    applyH(); f = driveModel(fitSet());
+    var m = f.model;
     ds.forEach(function (d) {
-      var r = rangeOf(d);
       if (!driveValid(d)) { d._n = null; return; }
+      if (hs.value > 0 && !isFinite(heatQ(d))) { d._n = null; return; }
+      var r = rangeOf(d);
       if (m && m.useT) { if (!hasTemp(d)) { d._n = null; return; } r -= m.c * hinge(d.temp); }
       if (m && m.useS) r -= m.s * (d.speed - REF_SPEED);
       d._n = r;
@@ -553,7 +642,7 @@
     var recent = scope.slice(-5), wsum = 0, rsum = 0;
     recent.forEach(function (d) { var w = dDelta(d); wsum += w; rsum += d._n * w; });
     var base = m ? m.a + m.b * m.odo0 : NaN;
-    return { ds: ds, valid: valid, scope: scope, range: wsum ? rsum / wsum : NaN, base: base, m: m, info: f.info, corrected: !!(m && (m.useT || m.useS)) };
+    return { ds: ds, valid: valid, scope: scope, range: wsum ? rsum / wsum : NaN, base: base, m: m, info: f.info, heat: hs, corrected: !!(m && (m.useT || m.useS)) || hs.value > 0 };
   }
 
   // ---------- Samankaltaisten ajojen vertailu ----------
@@ -881,7 +970,7 @@
   function renderSummary() {
     $('setupNotice').hidden = !!avain();
     var a = analyzeDrives(), m = a.m, t = a.info.t, sp = a.info.s;
-    var refTxt = [m && m.useT ? '+15 °C' : '', m && m.useS ? REF_SPEED + ' km/h' : ''].filter(Boolean).join(', ');
+    var refTxt = [m && m.useT ? '+15 °C' : '', m && m.useS ? REF_SPEED + ' km/h' : '', a.heat.value > 0 ? 'lämmin lähtö' : ''].filter(Boolean).join(', ');
     $('dRange').textContent = isFinite(a.range) ? fmt(a.range, 0) + ' km' : '–';
     $('dRangeL').textContent = 'Toimintamatka 100 %:n varauksella, viimeiset ajot' + (refTxt ? ' (vakioitu ' + refTxt + ')' : '');
     if (m && isFinite(a.base) && a.base > 0) {
@@ -915,16 +1004,48 @@
       $('dSpeed').textContent = 'kerätään dataa';
       mi.push('Nopeuskorjaus otetaan käyttöön, kun ajoja on vähintään ' + S_MIN_N + ' (nyt ' + sp.n + ') ja keskinopeudet vaihtelevat vähintään ' + S_MIN_RANGE + ' km/h (nyt ' + fmt(sp.range, 0) + ' km/h).');
     }
+    renderHeat(a, mi);
     $('dModel').textContent = mi.join(' ');
     renderSimilar(a.valid);
     $('lgRaw').hidden = !a.corrected;
     $('lgNorm').lastChild.textContent = a.corrected ? 'Vakioitu' : 'Ajo';
     var isDate = chartMode === 'date';
     plot($('driveChart'), a.ds.map(function (d) {
-      return { x: isDate ? d.t * 1000 : d.odo, raw: rangeOf(d), n: d._n, ok: driveValid(d) && d._n !== null, w: dDelta(d) };
+      return { x: isDate ? d.t * 1000 : d.odo, raw: rangeRaw(d), n: d._n, ok: driveValid(d) && d._n !== null, w: dDelta(d) };
     }), m ? { slope: m.b, intercept: m.a } : null, null, a.corrected, isDate);
     renderChargeSummary();
     renderStatus();
+  }
+
+  // Lämmityslisän tunnusluku ja selite (tila: data = alustava kaava, on = opittu, unsure, off).
+  function renderHeat(a, mi) {
+    var hs = a.heat, cap = capacityEstimate(a.valid);
+    if (hs.hall && hs.value > 0) mi.push('Lämpimästä hallista lähteneitä ajoja ' + hs.hall + '; ne eivät ole mukana lämmityskorjauksessa eivätkä kertoimen oppimisessa, koska hallin lämpötilaa ei tiedetä.');
+    var full = function (h) { // lisä 0 °C:ssa pitkän tauon jälkeen
+      var pct = h * T_H;
+      return fmt(pct, 1) + ' %-yks' + (isFinite(cap) ? ' ≈ ' + fmt(pct * cap / 100, 1) + ' kWh' : '');
+    };
+    if (hs.state === 'on') {
+      $('dHeat').textContent = full(hs.value) + ' · opittu';
+      mi.push('Lämmityskorjaus on opittu ajoista: ' + fmt(hs.value, 2) + ' ± ' + fmt(hs.se, 2) + ' %-yks/°C alle +' + T_H + ' °C (kylmiä lähtöjä ' + hs.cold + ', lämpimiä ' + hs.warm + ').');
+    } else if (hs.state === 'unsure') {
+      $('dHeat').textContent = 'ei selvää vaikutusta';
+      mi.push('Kylmän lähdön vaikutusta ei voitu erottaa luotettavasti (' + fmt(hs.h, 2) + ' ± ' + fmt(hs.se, 2) + ' %-yks/°C), joten lämmityskorjausta ei käytetä.');
+    } else if (hs.state === 'off') {
+      $('dHeat').textContent = 'pois käytöstä';
+      mi.push('Lämmityskorjaus on pois käytöstä (Asetukset).');
+    } else {
+      $('dHeat').textContent = full(H_PRIOR) + ' · alustava kaava';
+      mi.push('Lämmityskorjaus käyttää alustavaa kaavaa (' + fmt(H_PRIOR, 2) + ' %-yks/°C alle +' + T_H + ' °C), kunnes kylmiä lähtöjä (pitkä tauko kylmässä) on vähintään ' + H_MIN_N + ' (nyt ' + hs.cold + ') ja lämpimiä vähintään ' + H_MIN_N + ' (nyt ' + hs.warm + ').');
+    }
+  }
+  // Kapasiteetti kWh-vastinetta varten: auton mittarin mediaani pitkistä ajoista, varalla latausmalli.
+  function capacityEstimate(valid) {
+    var v = valid.filter(function (d) { return d.kwhAuto > 0 && d.kwhErr < d.kwhAuto * 0.1; })
+      .map(function (d) { return d.kwhAuto / dDelta(d) * 100; }).sort(function (a, b) { return a - b; });
+    if (v.length) return v[Math.floor(v.length / 2)];
+    var c = analyzeCharges().cap;
+    return isFinite(c) && c > 0 ? c : NaN;
   }
 
   function renderStatus() {
@@ -941,13 +1062,24 @@
   function renderDrives() {
     var ds = drives().sort(function (a, b) { return b.t - a.t; });
     $('drCount').textContent = ds.length;
-    $('drHint').textContent = 'Ajot, joissa varaus laski vähintään ' + RAJA + ' %-yksikköä. Napauta ajoa jättääksesi sen pois laskennasta (esim. peräkärry tai poikkeava ajo).';
+    $('drHint').textContent = 'Ajot, joissa varaus laski vähintään ' + RAJA + ' %-yksikköä. Napauta ajoa jättääksesi sen pois laskennasta (esim. peräkärry tai poikkeava ajo). Halli-painike merkitsee lähdön lämpimästä hallista: palvelu tunnistaa asetetut hallipaikat itse, ja merkintä korjaa tunnistuksen.';
     if (!ds.length) {
       $('driveList').innerHTML = '<div class="empty">' + (avain() ? 'Ei vielä yhtään riittävän pitkää ajoa.' : 'Syötä palvelun avain asetuksissa.') + '</div>';
       return;
     }
+    var h = analyzeDrives().heat.value;
     $('driveList').innerHTML = ds.map(function (d) {
-      var ok = driveValid(d), notes = [];
+      d._H = heatH(h, d);
+      var ok = driveValid(d) && !(h > 0 && !isFinite(heatQ(d))), notes = [], extra = [];
+      if (d.hall) extra.push('lähtö hallista' + (d.hall !== d.hallAuto ? ' (merkitty)' : ''));
+      else if (d.hallAuto) extra.push('merkitty: lähtö ulkoa');
+      if (d.hall && h > 0) notes.push('lähtö hallista – ei mukana, lämmitystä ei voi arvioida');
+      else if (h > 0 && !isFinite(heatQ(d)) && hasTemp(d)) notes.push('tauko ei tiedossa – ei mukana');
+      if (d.pause >= 0) extra.push('tauko ' + fmtPause(d.pause));
+      if (d.chargeBefore) extra.push((d.chargeBefore.tyyppi === 'DC' ? 'pikalataus' : 'lataus') + (d.chargeBefore.loppu ? ' ' + fmtPause(Math.max(0, (d.t0 || d.t) - d.chargeBefore.loppu)) + ' ennen' : ' ennen'));
+      if (d.preheated === true) extra.push('esilämmitetty');
+      if (d._H > 0) extra.push('lämmitys −' + fmt(d._H, 1) + ' %-yks');
+      if (d.kwhAuto > 0) extra.push(fmt(d.kwhAuto, 1) + ' kWh (auton mittari)');
       if (d.off) notes.push('jätetty pois');
       if (d.state === 'latausta') notes.push('latausta ajon aikana – ei mukana');
       else if (d.state !== 'ok') notes.push('varaus puuttuu – ei mukana');
@@ -959,12 +1091,25 @@
         '<div class="meta">Varaus ' + fmt(d.socStart, 0) + ' → ' + fmt(d.socEnd, 0) + ' % (−' + fmt(dDelta(d), 0) + ') · ' +
         (d.speed > 0 ? SRC_TXT[d.speedSrc || ''] + fmt(d.speed, 0) + ' km/h' : '– km/h') + ' · ' +
         (hasTemp(d) ? fmt(d.temp, 1) + ' °C' : '– °C') + ' · mittari ' + fmt(d.odo, 0) + ' km</div>' +
-        (notes.length ? '<div class="meta warnTxt">' + esc(notes.join(' · ')) + '</div>' : '') + '</div>' +
+        (extra.length ? '<div class="meta">' + esc(extra.join(' · ')) + '</div>' : '') +
+        (notes.length ? '<div class="meta warnTxt">' + esc(notes.join(' · ')) + '</div>' : '') +
+        '<button class="btn small hallBtn" type="button" data-id="' + esc(d.id) + '">' + (d.hall ? 'Hallista ✓' : 'Halli') + '</button></div>' +
         '<div class="r">' + fmt(rangeOf(d), 0) + ' km<small>' + (ok ? '100 %:lla' : 'ei laskennassa') + '</small></div></div>';
     }).join('');
   }
 
   $('driveList').addEventListener('click', function (e) {
+    var hb = e.target.closest('.hallBtn');
+    if (hb) {
+      e.stopPropagation();
+      var hid = hb.dataset.id, hd = drives().filter(function (x) { return x.id === hid; })[0];
+      if (!hd) return;
+      var next = !hd.hall;
+      if (next === hd.hallAuto) delete data.talli[hid]; else data.talli[hid] = next;
+      save(); renderDrives();
+      toast(next ? 'Merkitty: lähtö lämpimästä hallista' : 'Merkitty: lähtö ulkoa');
+      return;
+    }
     var el = e.target.closest('.drive'); if (!el) return;
     var id = el.dataset.id;
     if (data.pois[id]) delete data.pois[id]; else data.pois[id] = true;
@@ -977,6 +1122,7 @@
     $('srvUrl').value = palveluUrl();
     document.querySelectorAll('.rajaTxt').forEach(function (x) { x.textContent = RAJA; });
     $('capNew').value = data.capNew || '';
+    $('heatMode').value = prefs.heat === 'off' ? 'off' : 'auto';
   }
 
   function show(view) {
@@ -1029,9 +1175,13 @@
     data.capNew = v > 0 && v < 300 ? Math.round(v * 10) / 10 : null; save();
     toast(data.capNew ? 'Kapasiteetti tallennettu' : 'Kapasiteetti poistettu');
   });
+  $('heatMode').addEventListener('change', function () {
+    prefs.heat = $('heatMode').value === 'off' ? 'off' : 'auto'; savePrefs();
+    toast(prefs.heat === 'off' ? 'Lämmityskorjaus pois käytöstä' : 'Lämmityskorjaus käytössä');
+  });
   // Varmuuskopio: vain käyttäjän omat tiedot (kWh, kapasiteetti, poissulut). Ei avainta.
   $('expBtn').addEventListener('click', function () {
-    var b = { sovellus: 'akkuvahti', versio: 1, viety: new Date().toISOString(), kwh: data.kwh, capNew: data.capNew, pois: data.pois };
+    var b = { sovellus: 'akkuvahti', versio: 1, viety: new Date().toISOString(), kwh: data.kwh, capNew: data.capNew, pois: data.pois, talli: data.talli };
     var url = URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' }));
     var a = document.createElement('a'); a.href = url; a.download = 'akkuvahti-' + today() + '.json';
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
@@ -1045,6 +1195,7 @@
       var n = 0;
       Object.keys(b.kwh || {}).forEach(function (k) { if (typeof b.kwh[k] === 'number') { data.kwh[k] = b.kwh[k]; n++; } });
       Object.keys(b.pois || {}).forEach(function (k) { if (b.pois[k]) data.pois[k] = true; });
+      Object.keys(b.talli || {}).forEach(function (k) { if (typeof b.talli[k] === 'boolean') data.talli[k] = b.talli[k]; });
       if (typeof b.capNew === 'number') data.capNew = b.capNew;
       save(); render(); toast('Tuotu ' + n + ' kWh-lukemaa');
     }).catch(function () { toast('Tiedosto ei ole Akkuvahdin varmuuskopio'); })
