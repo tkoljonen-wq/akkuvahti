@@ -16,6 +16,7 @@ Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen.
 | 14.11.2026 | Kylmän lähdön lämmityslisä vähennetään varauksen laskusta: alustava kaava heti (0,35 %-yks/°C alle +10 °C, tauon aikavakio 3 h), kerroin opitaan ajoista. Pois-kytkin asetuksissa. [LAMMITYSKORJAUS.md](LAMMITYSKORJAUS.md) |
 | 14.11.2026 | Esilämmitys kerätään palveluun (`parking-climatization`); auton kulutusmittarin kWh näytetään ajoissa. |
 | 14.11.2026 | Lämpimästä hallista lähteneet ajot (palvelun `lammin_paikka`, oletuksena työpaikka, tai Halli-merkintä) jätetään kokonaan pois lämmityskorjauksesta ja oppimisesta, koska hallin lämpötila vaihtelee. |
+| 14.11.2026 | Alle 20 %-yksikön ajoja ei haeta eikä näytetä. Ne eivät ole missään laskennassa, joten niille ei tarvita hallimerkintää. |
 
 ## Arkkitehtuuri
 
@@ -124,7 +125,7 @@ localStorageen (`akkuvahti-data-v1`).
 | 3 | Julkaisu: `ajo_lampo` D1:een, `wrangler deploy`, GitHub Pages | ✅ 11.11.2026, https://tkoljonen-wq.github.io/akkuvahti/ (repo `tkoljonen-wq/akkuvahti`) |
 | 4 | Avain sovellukseen: `akun-kunto` (km + akku) | ✅ 11.11.2026 |
 | 5 | Lataukset ja kWh-syöttö, julkaistu ja todettu toimivaksi | ✅ 11.11.2026 |
-| 6 | Lämmityskorjaus: palvelun kentät ja esilämmityksen keruu, sovelluksen malli ja asetus | ✅ 14.11.2026 palvelu julkaistu, sovellus testattu paikallisesti |
+| 6 | Lämmityskorjaus: palvelun kentät, esilämmityksen keruu, lämpimät paikat, sovelluksen malli ja asetus | ✅ 14.11.2026 palvelu ja sovellus julkaistu (commit 8d7486e) |
 
 Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta);
 kapasiteetti auton kulutusmittarista (`kwh_auto`) Lataukset-mallin rinnalle

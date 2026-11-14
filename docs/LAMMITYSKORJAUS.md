@@ -3,8 +3,8 @@
 Kylmän lähdön (pitkä tauko kylmässä) ylimääräinen kulutus akun ja ohjaamon
 lämmitykseen huomioidaan ajojen laskennassa kaavalla, jonka kerroin opitaan
 ajoista sitä mukaa kuin pitkän ja lyhyen tauon jälkeisiä ajoja kertyy.
-Tila: **toteutettu 14.11.2026** päätöskohtien 1–4 suositusten mukaan (luku 7),
-toteutus luvussa 8.
+Tila: **toteutettu ja julkaistu 14.11.2026** päätöskohtien 1–4 suositusten mukaan
+(luku 7), toteutus luvussa 8, lämmin halli luvussa 9.
 
 ## 1. Havainto 14.11.2026 (D1, Lahti ↔ pääkaupunkiseutu)
 
@@ -224,3 +224,9 @@ jota auto ei testissä lähettänyt). Ratkaisu:
 * Lisäys/muutos: `wrangler d1 execute polestar --remote --command "INSERT INTO
   lammin_paikka (nimi, lat, lon, sade_m, lisatty) VALUES (...)"`. Tiistain
   10.11. pysäköintipaikka 60,974 / 25,677 (1,4 km työpaikasta) ei ole listalla.
+* Lyhyet ajot (alle 20 %-yks) eivät näy sovelluksessa eivätkä ole mukana
+  missään laskennassa, joten niitä ei tarvitse merkitä (käyttäjän päätös
+  14.11.2026). Halli-painike on vain laskennassa olevia pitkiä ajoja varten,
+  joiden lähtöpaikkaa palvelu ei tunnista oikein.
+* Odotettavissa: kerroin alkaa oppia, kun kylmiä ja lämpimiä lähtöjä on
+  kumpiakin vähintään 4 (14.11.2026: 1 / 1).

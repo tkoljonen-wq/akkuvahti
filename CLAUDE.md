@@ -9,7 +9,8 @@ Lue ennen muutoksia: `docs/SUUNNITELMA.md`, `docs/LAMMITYSKORJAUS.md` ja palvelu
 
 ## Pysyvät linjaukset (käyttäjän päätökset 11.11.2026)
 
-* Vain ajot, joissa varaus laskee vähintään 20 %-yksikköä (`RAJA`).
+* Vain ajot, joissa varaus laskee vähintään 20 %-yksikköä (`RAJA`). Lyhyempiä
+  ei haeta eikä näytetä; ne eivät ole missään laskennassa (vahvistettu 14.11.2026).
 * Lataukset (lisätty 11.11.2026): lista tulee palvelusta (`/v1/lataukset?tapa=kytkenta`,
   AC/DC autolta), kWh syötetään käsin halutessa. Laskennassa vain lataukset,
   joilla on kWh ja varauksen nousu ≥ 20. kWh:t, kapasiteetti uutena ja
