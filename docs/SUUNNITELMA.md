@@ -17,6 +17,7 @@ Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen.
 | 14.11.2026 | Esilämmitys kerätään palveluun (`parking-climatization`); auton kulutusmittarin kWh näytetään ajoissa. |
 | 14.11.2026 | Lämpimästä hallista lähteneet ajot (palvelun `lammin_paikka`, oletuksena työpaikka, tai Halli-merkintä) jätetään kokonaan pois lämmityskorjauksesta ja oppimisesta, koska hallin lämpötila vaihtelee. |
 | 14.11.2026 | Alle 20 %-yksikön ajoja ei haeta eikä näytetä. Ne eivät ole missään laskennassa, joten niille ei tarvita hallimerkintää. |
+| 14.11.2026 | Auton mittarin kWh (`kwh_auto`) on osamatkan keskikulutuksen kertymän erotus, ei keskiarvo. Palvelu lukee keskikulutuksen samalta hetkeltä kuin osamatkan (ajon aikainen tai edellisen ajon lukema → null). Kapasiteetti kWh-vastineeseen on painotettu mediaani (mittarin ja varauksen pyöristysvirhe). Mittarin kWh ei vaikuta akun kuntoon eikä toimintamatkaan. |
 
 ## Arkkitehtuuri
 

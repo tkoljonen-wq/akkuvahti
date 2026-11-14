@@ -290,7 +290,7 @@
         <li>Keskinopeus on auton oma ajokohtainen luku, kun se saadaan. Merkintä ≈ tarkoittaa, että nopeus on laskettu ajoajasta, ja se on yleensä hieman todellista pienempi.</li>
         <li>Latauksiin perustuva kapasiteetti = syötetty kWh ÷ varauksen nousu × 100. Mittaus sisältää latauksen häviöt, joten AC- ja DC-lataukset vakioidaan toisiinsa, kun kumpaakin on vähintään 3. Lämpötila on 6 tunnin keskiarvo ennen latauksen loppua latauspaikassa.</li>
         <li>Ladattua energiaa ei saada autosta, joten kWh syötetään käsin. Tieto AC- tai DC-latauksesta tulee autolta.</li>
-        <li>Ajolistan kWh (auton mittari) on auton oman kulutusmittarin lukema ajolle: käsin nollattavan osamatkan keskikulutus × osamatka. Tarkkuus noin ±0,5 kWh. Puuttuu, jos osamatka nollattiin kesken ajon.</li>
+        <li>Ajolistan kWh (auton mittari) on auton oman kulutusmittarin lukema ajolle: käsin nollattavan osamatkan keskikulutus × osamatka. Keskikulutus kattaa monta ajoa, joten ajon kWh lasketaan erotuksena (lopun kertymä miinus alun kertymä). Tarkkuus noin ±0,5 kWh. Puuttuu, jos osamatka nollattiin kesken ajon tai lukemaa ei saatu ajon alusta tai lopusta. Lukemaa käytetään vain lämmityslisän kWh-arvioon, ei akun kuntoon.</li>
       </ul>
     </div>
     <div class="card">
@@ -1039,11 +1039,17 @@
       mi.push('Lämmityskorjaus käyttää alustavaa kaavaa (' + fmt(H_PRIOR, 2) + ' %-yks/°C alle +' + T_H + ' °C), kunnes kylmiä lähtöjä (pitkä tauko kylmässä) on vähintään ' + H_MIN_N + ' (nyt ' + hs.cold + ') ja lämpimiä vähintään ' + H_MIN_N + ' (nyt ' + hs.warm + ').');
     }
   }
-  // Kapasiteetti kWh-vastinetta varten: auton mittarin mediaani pitkistä ajoista, varalla latausmalli.
+  // Kapasiteetti kWh-vastinetta varten: auton mittarin painotettu mediaani pitkistä ajoista,
+  // varalla latausmalli. Paino 1/suhteellinen virhe²: mittarin pyöristys (pitkä osamatka kertoo
+  // ±0,05 kWh/100 km) ja varauksen kokonaislukupyöristys (±1 %-yks erotuksessa).
   function capacityEstimate(valid) {
     var v = valid.filter(function (d) { return d.kwhAuto > 0 && d.kwhErr < d.kwhAuto * 0.1; })
-      .map(function (d) { return d.kwhAuto / dDelta(d) * 100; }).sort(function (a, b) { return a - b; });
-    if (v.length) return v[Math.floor(v.length / 2)];
+      .map(function (d) {
+        var ds = dDelta(d), rk = (d.kwhErr || 0) / d.kwhAuto, rs = 1 / ds;
+        return { c: d.kwhAuto / ds * 100, w: 1 / (rk * rk + rs * rs) };
+      }).sort(function (a, b) { return a.c - b.c; });
+    var tot = v.reduce(function (s, x) { return s + x.w; }, 0), acc = 0;
+    for (var i = 0; i < v.length; i++) { acc += v[i].w; if (acc >= tot / 2) return v[i].c; }
     var c = analyzeCharges().cap;
     return isFinite(c) && c > 0 ? c : NaN;
   }
