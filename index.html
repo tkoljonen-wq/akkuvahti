@@ -148,6 +148,7 @@
   .chgrow .kwh span { font-size: 14px; color: var(--muted); }
   .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--card2); color: var(--accent2); margin-right: 6px; }
   .tag.dc { color: var(--warn); }
+  .tag.old { color: var(--muted); font-weight: 600; margin: 0 0 0 6px; }
   ul.plain { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
   ul.plain li { margin: 4px 0; }
 </style>
@@ -298,6 +299,14 @@
       <p class="hint" style="margin-top:0">Akkuvahti ei käsittele sijainteja. Palvelu käyttää auton sijaintia vain lämpötilan hakemiseen (pyöristettynä noin kilometrin tarkkuuteen ennen lähettämistä Open-Meteoon) ja lämpimän hallin tunnistamiseen, ja palauttaa tänne vain lämpötilan ja tiedon hallista. Ajot, lataukset, kWh-lukemat ja asetukset ovat vain tämän puhelimen muistissa.</p>
     </div>
     <div class="card">
+      <h2>Akun kapasiteetti -sovelluksen tiedot</h2>
+      <p class="hint" style="margin-top:0" id="oldInfo"></p>
+      <button class="btn block" id="oldImport">Tuo Akun kapasiteetti -sovelluksesta</button>
+      <input type="file" id="oldFile" accept="application/json,.json" hidden>
+      <button class="btn block" id="oldFileBtn">Tuo varmuuskopiotiedostosta</button>
+      <button class="btn danger block" id="oldRemove" hidden>Poista tuodut tiedot</button>
+    </div>
+    <div class="card">
       <h2>Tiedot</h2>
       <p class="hint" style="margin-top:0">Syöttämäsi kWh-lukemat, akun kapasiteetti, poissulkemiset ja hallimerkinnät ovat vain tässä puhelimessa. Ota niistä varmuuskopio.</p>
       <div style="display:flex;gap:8px;margin-top:10px">
@@ -338,9 +347,12 @@
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
   function avain() { return (lsGet(KEY_AVAIN) || '').trim(); }
   function palveluUrl() { return (lsGet(KEY_URL) || OLETUS_URL).replace(/\/+$/, ''); }
-  function emptyData() { return { ajot: {}, lataukset: {}, haettu: null, pois: {}, kwh: {}, talli: {}, capNew: null, viimeisin: null, tila: null, virhe: null }; }
+  // vanhat = Akun kapasiteetti -sovelluksesta tuodut ajot ja lataukset (ennen palvelun keruun alkua).
+  function emptyData() { return { ajot: {}, lataukset: {}, vanhat: null, haettu: null, pois: {}, kwh: {}, talli: {}, capNew: null, viimeisin: null, tila: null, virhe: null }; }
   // Käyttäjän omat tiedot säilyvät, kun haetut tiedot nollataan.
-  function resetFetched() { var d = emptyData(); d.pois = data.pois; d.kwh = data.kwh; d.talli = data.talli; d.capNew = data.capNew; data = d; save(); }
+  function resetFetched() { var d = emptyData(); d.pois = data.pois; d.kwh = data.kwh; d.talli = data.talli; d.capNew = data.capNew; d.vanhat = data.vanhat; data = d; save(); }
+  function vanhat(k) { return (data.vanhat && data.vanhat[k]) || {}; }
+  function allRecs(k) { var a = data[k], v = vanhat(k); return Object.keys(a).map(function (i) { return a[i]; }).concat(Object.keys(v).map(function (i) { return v[i]; })); }
   var data = (function () {
     try {
       var d = JSON.parse(lsGet(KEY_DATA));
@@ -463,9 +475,8 @@
   function hinge(t) { return Math.min(t - KNEE, 0); }
   function hasTemp(d) { return typeof d.temp === 'number' && isFinite(d.temp); }
   function drives() {
-    return Object.keys(data.ajot).map(function (k) {
-      var a = data.ajot[k];
-      return { id: a.id, date: a.paiva, t0: a.alku, t: a.loppu, odo: a.km_alku, dist: a.matka_km, socStart: a.soc_alku, socEnd: a.soc_loppu,
+    return allRecs('ajot').map(function (a) {
+      return { id: a.id, old: !!a.vanha, date: a.paiva, t0: a.alku, t: a.loppu, odo: a.km_alku, dist: a.matka_km, socStart: a.soc_alku, socEnd: a.soc_loppu,
         temp: a.lampo_c, speed: a.nopeus, speedSrc: a.nopeus_lahde, parts: a.osia, state: a.tila,
         pause: a.tauko, chargeBefore: a.lataus_ennen || null, preheated: a.esilammitys, kwhAuto: a.kwh_auto, kwhErr: a.kwh_auto_virhe,
         hallAuto: a.talli === true, hall: (a.id in data.talli) ? !!data.talli[a.id] : a.talli === true,
@@ -479,7 +490,9 @@
   // Tehollinen tauko tunteina: pikalataus (DC) lämmittää akun, esilämmitys tekee lähdöstä lämpimän.
   function pauseH(d) {
     if (d.preheated === true) return 0;
-    if (!(d.pause >= 0)) return NaN;
+    // Tuotu ajo, joka alkoi pikalatauksen lopusta (km ja varaus täsmäävät): akku lämmin.
+    if (d.old && d.chargeBefore && d.chargeBefore.tyyppi === 'DC') return 0;
+    if (typeof d.pause !== 'number' || !(d.pause >= 0)) return NaN; // huom. null >= 0 on JS:ssä tosi
     var p = d.pause, t0 = d.t0 || d.t;
     if (d.chargeBefore && d.chargeBefore.tyyppi === 'DC' && d.chargeBefore.loppu) p = Math.min(p, Math.max(0, t0 - d.chargeBefore.loppu));
     return p / 3600;
@@ -778,9 +791,9 @@
   function lossName(k) { return LOSS_NAMES[k] || 'Laturi ei tiedossa'; }
   function lcFirst(t) { return /^.[A-ZÄÖ]/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1); }
   function charges() {
-    return Object.keys(data.lataukset).map(function (k) {
-      var c = data.lataukset[k], kwh = data.kwh[c.id];
-      return { id: c.id, date: c.paiva, t0: c.alku, t: c.loppu, t1: c.lataus_alku, t2: c.lataus_loppu, kesken: c.kesken,
+    return allRecs('lataukset').map(function (c) {
+      var kwh = data.kwh[c.id];
+      return { id: c.id, old: !!c.vanha, date: c.paiva, t0: c.alku, t: c.loppu, t1: c.lataus_alku, t2: c.lataus_loppu, kesken: c.kesken,
         km: c.km, socBefore: c.soc_ennen, socAfter: c.soc_jalkeen, temp: c.lampo_c, kwh: typeof kwh === 'number' ? kwh : NaN,
         charger: c.tyyppi === 'DC' ? 'dc' : c.tyyppi === 'AC' ? 'ac' : '' };
     });
@@ -933,7 +946,7 @@
       var aika = fmtTime(e.t1 || e.t0) + (e.t2 ? '–' + fmtTime(e.t2) : '');
       return '<div class="chgrow"><div class="top"><div class="main">' +
         '<div><span class="tag' + (e.charger === 'dc' ? ' dc' : '') + '">' + (e.charger ? e.charger.toUpperCase() : '?') + '</span>' +
-        esc(fmtDate(e.date)) + ' klo ' + aika + '</div>' +
+        esc(fmtDate(e.date)) + ' klo ' + aika + (e.old ? ' <span class="tag old">tuotu</span>' : '') + '</div>' +
         '<div class="meta">Varaus ' + fmt(e.socBefore, 0) + ' → ' + fmt(e.socAfter, 0) + ' % (+' + fmt(d, 0) + ') · ' +
         (hasTemp(e) ? fmt(e.temp, 1) + ' °C' : '– °C') + (isFinite(e.km) ? ' · mittari ' + fmt(e.km, 0) + ' km' : '') + '</div>' +
         (notes.length ? '<div class="meta warnTxt">' + esc(notes.join(' · ')) + '</div>' : '') + '</div>' +
@@ -1066,7 +1079,8 @@
 
   var SRC_TXT = { auto: '', erotus: '', aika: '≈' };
   function renderDrives() {
-    var ds = drives().sort(function (a, b) { return b.t - a.t; });
+    // Mittarilukema kasvaa ajassa, joten se järjestää myös tuodut ajot, joilta kellonaika puuttuu.
+    var ds = drives().sort(function (a, b) { return (b.odo - a.odo) || (b.t - a.t); });
     $('drCount').textContent = ds.length;
     $('drHint').textContent = 'Ajot, joissa varaus laski vähintään ' + RAJA + ' %-yksikköä. Napauta ajoa jättääksesi sen pois laskennasta (esim. peräkärry tai poikkeava ajo). Halli-painike merkitsee lähdön lämpimästä hallista: palvelu tunnistaa asetetut hallipaikat itse, ja merkintä korjaa tunnistuksen.';
     if (!ds.length) {
@@ -1081,7 +1095,7 @@
       else if (d.hallAuto) extra.push('merkitty: lähtö ulkoa');
       if (d.hall && h > 0) notes.push('lähtö hallista – ei mukana, lämmitystä ei voi arvioida');
       else if (h > 0 && !isFinite(heatQ(d)) && hasTemp(d)) notes.push('tauko ei tiedossa – ei mukana');
-      if (d.pause >= 0) extra.push('tauko ' + fmtPause(d.pause));
+      if (typeof d.pause === 'number' && d.pause >= 0) extra.push('tauko ' + fmtPause(d.pause));
       if (d.chargeBefore) extra.push((d.chargeBefore.tyyppi === 'DC' ? 'pikalataus' : 'lataus') + (d.chargeBefore.loppu ? ' ' + fmtPause(Math.max(0, (d.t0 || d.t) - d.chargeBefore.loppu)) + ' ennen' : ' ennen'));
       if (d.preheated === true) extra.push('esilämmitetty');
       if (d._H > 0) extra.push('lämmitys −' + fmt(d._H, 1) + ' %-yks');
@@ -1093,7 +1107,8 @@
       if (!(d.speed > 0)) notes.push('keskinopeus puuttuu – ei mukana');
       if (d.parts > 1) notes.push(d.parts + ' osaa');
       return '<div class="drive' + (d.off ? ' off' : '') + '" data-id="' + esc(d.id) + '" role="button" tabindex="0">' +
-        '<div class="main"><div>' + esc(fmtDate(d.date)) + ' klo ' + (d.t0 ? fmtTime(d.t0) + '–' : '') + fmtTime(d.t) + ' · ' + fmt(d.dist, 1) + ' km</div>' +
+        '<div class="main"><div>' + esc(fmtDate(d.date)) + (d.old ? '' : ' klo ' + (d.t0 ? fmtTime(d.t0) + '–' : '') + fmtTime(d.t)) + ' · ' + fmt(d.dist, 1) + ' km' +
+        (d.old ? ' <span class="tag old">tuotu</span>' : '') + '</div>' +
         '<div class="meta">Varaus ' + fmt(d.socStart, 0) + ' → ' + fmt(d.socEnd, 0) + ' % (−' + fmt(dDelta(d), 0) + ') · ' +
         (d.speed > 0 ? SRC_TXT[d.speedSrc || ''] + fmt(d.speed, 0) + ' km/h' : '– km/h') + ' · ' +
         (hasTemp(d) ? fmt(d.temp, 1) + ' °C' : '– °C') + ' · mittari ' + fmt(d.odo, 0) + ' km</div>' +
@@ -1129,7 +1144,93 @@
     document.querySelectorAll('.rajaTxt').forEach(function (x) { x.textContent = RAJA; });
     $('capNew').value = data.capNew || '';
     $('heatMode').value = prefs.heat === 'off' ? 'off' : 'auto';
+    renderOld();
   }
+
+  // ---------- Tuonti Akun kapasiteetti -sovelluksesta ----------
+  // Vanha sovellus on samassa originissa, joten sen tiedot luetaan suoraan (vain luku, sitä ei muuteta).
+  // Mukaan vain palvelun keruuta (ALKUPAIVA) edeltävät merkinnät, jotta mitään ei tule kahteen kertaan.
+  var OLD_KEY = 'akkukapasiteetti-data-v1';
+  function oldNum(v) { if (v === '' || v == null) return NaN; return typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); }
+  function oldTs(date, time) {
+    var p = date.split('-'), t = /^(\d{1,2}):(\d{2})$/.exec(time || '') || [0, 12, 0];
+    return Math.round(new Date(+p[0], +p[1] - 1, +p[2], +t[1], +t[2]).getTime() / 1000);
+  }
+  function convertOld(d) {
+    if (!d || !Array.isArray(d.events)) throw new Error('muoto');
+    var isDate = function (s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || ''); };
+    var r = { ajot: {}, lataukset: {}, kwh: {}, ohitettu: 0, eka: null, vika: null };
+    var span = function (p) { if (!r.eka || p < r.eka) r.eka = p; if (!r.vika || p > r.vika) r.vika = p; };
+    var evs = d.events.map(function (e) {
+      return { date: String(e.date || ''), time: e.time, endDate: isDate(e.endDate) ? e.endDate : String(e.date || ''), endTime: e.endTime || e.time,
+        km: oldNum(e.km), sb: oldNum(e.socBefore), sa: oldNum(e.socAfter), kwh: oldNum(e.kwh), temp: oldNum(e.temp), charger: e.charger };
+    }).filter(function (e) { return isDate(e.date) && isFinite(e.km) && e.sb >= 0 && e.sa <= 100 && e.sa > e.sb && e.kwh > 0; });
+    evs.forEach(function (e) {
+      if (e.date >= ALKUPAIVA) { r.ohitettu++; return; }
+      var id = 'vanha-l-' + e.date + '-' + String(e.time || '').replace(':', '') + '-' + Math.round(e.km);
+      var a = oldTs(e.date, e.time), l = oldTs(e.endDate, e.endTime);
+      r.lataukset[id] = { id: id, vanha: true, paiva: e.date, alku: a, loppu: l, kesken: false, lataus_alku: a, lataus_loppu: l,
+        tyyppi: e.charger === 'dc' ? 'DC' : (e.charger === 'home' || e.charger === 'ac') ? 'AC' : null,
+        soc_ennen: e.sb, soc_jalkeen: e.sa, km: Math.round(e.km), lampo_c: isFinite(e.temp) ? e.temp : null };
+      r.kwh[id] = Math.round(e.kwh * 100) / 100; span(e.date);
+    });
+    (Array.isArray(d.drives) ? d.drives : []).forEach(function (x) {
+      var o = { date: String(x.date || ''), odo: oldNum(x.odo), s0: oldNum(x.socStart), s1: oldNum(x.socEnd), dist: oldNum(x.dist), speed: oldNum(x.speed), temp: oldNum(x.temp) };
+      if (!isDate(o.date) || !isFinite(o.odo) || !(o.dist > 0) || !(o.speed > 0 && o.speed < 250) || !(o.s0 <= 100 && o.s1 >= 0)) return;
+      if (o.date >= ALKUPAIVA || o.s0 - o.s1 < RAJA) { r.ohitettu++; return; }
+      // Ajo alkoi pikalatauksen lopusta, jos km ja varaus täsmäävät latauksen loppuun.
+      var dc = evs.some(function (e) { return e.charger === 'dc' && Math.abs(e.km - o.odo) <= 2 && Math.abs(e.sa - o.s0) <= 1 && (e.endDate === o.date || e.date === o.date); });
+      var id = 'vanha-a-' + o.date + '-' + Math.round(o.odo);
+      r.ajot[id] = { id: id, vanha: true, paiva: o.date, alku: null, loppu: oldTs(o.date), km_alku: o.odo, matka_km: o.dist,
+        soc_alku: o.s0, soc_loppu: o.s1, nopeus: o.speed, nopeus_lahde: 'auto', lampo_c: isFinite(o.temp) ? o.temp : null, osia: 1, tila: 'ok',
+        tauko: null, lataus_ennen: dc ? { tyyppi: 'DC' } : null, esilammitys: null, talli: null, kwh_auto: null, kwh_auto_virhe: null };
+      span(o.date);
+    });
+    var cap = d.car ? oldNum(d.car.capacityNew) : NaN;
+    r.capNew = cap > 0 && cap < 300 ? Math.round(cap * 10) / 10 : null;
+    return r;
+  }
+  function importOld(d, lahde) {
+    var r;
+    try { r = convertOld(d); } catch (e) { toast('Tiedosto ei ole Akun kapasiteetti -sovelluksen varmuuskopio'); return; }
+    var na = Object.keys(r.ajot).length, nl = Object.keys(r.lataukset).length;
+    if (!na && !nl) { toast('Ei tuotavia ajoja tai latauksia ennen ' + fmtDate(ALKUPAIVA)); return; }
+    if (!confirm('Tuodaanko ' + na + ' ajoa ja ' + nl + ' latausta (' + fmtDate(r.eka) + '–' + fmtDate(r.vika) + ')?' +
+      (data.vanhat ? ' Aiemmin tuodut korvataan.' : '') + (r.ohitettu ? ' Ohitetaan ' + r.ohitettu + ' merkintää (alle ' + RAJA + ' %-yks. ajot tai ' + fmtDate(ALKUPAIVA) + ' alkaen, jolloin tiedot tulevat palvelusta).' : ''))) return;
+    Object.keys(data.kwh).forEach(function (k) { if (k.indexOf('vanha-l-') === 0 && !(k in r.lataukset)) delete data.kwh[k]; });
+    Object.keys(r.kwh).forEach(function (k) { data.kwh[k] = r.kwh[k]; });
+    if (!data.capNew && r.capNew) data.capNew = r.capNew;
+    data.vanhat = { lahde: lahde, tuotu: Date.now(), ajot: r.ajot, lataukset: r.lataukset };
+    save(); render(); toast('Tuotu ' + na + ' ajoa ja ' + nl + ' latausta');
+  }
+  function renderOld() {
+    var v = data.vanhat, na = Object.keys(vanhat('ajot')).length, nl = Object.keys(vanhat('lataukset')).length;
+    $('oldRemove').hidden = !v;
+    $('oldImport').textContent = v ? 'Tuo uudelleen Akun kapasiteetti -sovelluksesta' : 'Tuo Akun kapasiteetti -sovelluksesta';
+    $('oldInfo').textContent = v
+      ? 'Tuotu ' + fmtWhen(v.tuotu) + ': ' + na + ' ajoa ja ' + nl + ' latausta ennen ' + fmtDate(ALKUPAIVA) + '. Ne ovat laskennassa kuten palvelun tiedot ja merkitty listoissa sanalla ”tuotu”. Vanhoista ajoista puuttuu kellonaika ja tauko, joten lämmityskorjauksen ollessa käytössä laskennassa ovat niistä vain pikalatauksen jälkeen alkaneet ajot.'
+      : 'Akun kapasiteetti -sovellukseen käsin kirjatut ajot ja lataukset ennen ' + fmtDate(ALKUPAIVA) + ' voi tuoda tänne, jolloin trendi lasketaan pidemmältä ajalta. Tiedot luetaan tämän puhelimen Akun kapasiteetti -sovelluksesta (sitä ei muuteta) tai sen varmuuskopiotiedostosta (.json).';
+  }
+  $('oldImport').addEventListener('click', function () {
+    var d = null;
+    try { d = JSON.parse(lsGet(OLD_KEY)); } catch (e) {}
+    if (!d || !Array.isArray(d.events) || !(d.events.length || (d.drives || []).length)) {
+      toast('Akun kapasiteetti -sovelluksen tietoja ei löytynyt tästä puhelimesta. Tuo varmuuskopiotiedosto.'); return;
+    }
+    importOld(d, 'puhelin');
+  });
+  $('oldFileBtn').addEventListener('click', function () { $('oldFile').click(); });
+  $('oldFile').addEventListener('change', function () {
+    var f = $('oldFile').files[0]; if (!f) return;
+    f.text().then(function (txt) { var o = JSON.parse(txt); importOld(o && o.data ? o.data : o, 'tiedosto'); })
+      .catch(function () { toast('Tiedosto ei ole Akun kapasiteetti -sovelluksen varmuuskopio'); })
+      .finally(function () { $('oldFile').value = ''; });
+  });
+  $('oldRemove').addEventListener('click', function () {
+    if (!confirm('Poistetaanko tuodut ajot ja lataukset Akkuvahdista? Akun kapasiteetti -sovellukseen tämä ei vaikuta.')) return;
+    Object.keys(data.kwh).forEach(function (k) { if (k.indexOf('vanha-l-') === 0) delete data.kwh[k]; });
+    data.vanhat = null; save(); render(); toast('Tuodut tiedot poistettu');
+  });
 
   function show(view) {
     document.querySelectorAll('.view').forEach(function (v) { v.classList.toggle('active', v.id === 'view-' + view); });
@@ -1185,9 +1286,9 @@
     prefs.heat = $('heatMode').value === 'off' ? 'off' : 'auto'; savePrefs();
     toast(prefs.heat === 'off' ? 'Lämmityskorjaus pois käytöstä' : 'Lämmityskorjaus käytössä');
   });
-  // Varmuuskopio: vain käyttäjän omat tiedot (kWh, kapasiteetti, poissulut). Ei avainta.
+  // Varmuuskopio: vain käyttäjän omat tiedot (kWh, kapasiteetti, poissulut, tuodut vanhat). Ei avainta.
   $('expBtn').addEventListener('click', function () {
-    var b = { sovellus: 'akkuvahti', versio: 1, viety: new Date().toISOString(), kwh: data.kwh, capNew: data.capNew, pois: data.pois, talli: data.talli };
+    var b = { sovellus: 'akkuvahti', versio: 1, viety: new Date().toISOString(), kwh: data.kwh, capNew: data.capNew, pois: data.pois, talli: data.talli, vanhat: data.vanhat };
     var url = URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' }));
     var a = document.createElement('a'); a.href = url; a.download = 'akkuvahti-' + today() + '.json';
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
@@ -1203,12 +1304,16 @@
       Object.keys(b.pois || {}).forEach(function (k) { if (b.pois[k]) data.pois[k] = true; });
       Object.keys(b.talli || {}).forEach(function (k) { if (typeof b.talli[k] === 'boolean') data.talli[k] = b.talli[k]; });
       if (typeof b.capNew === 'number') data.capNew = b.capNew;
+      if (b.vanhat && b.vanhat.ajot && b.vanhat.lataukset) {
+        var keep = function (o) { var r = {}; Object.keys(o).forEach(function (k) { if (k.indexOf('vanha-') === 0 && o[k] && o[k].vanha === true) r[k] = o[k]; }); return r; };
+        data.vanhat = { lahde: 'varmuuskopio', tuotu: b.vanhat.tuotu || Date.now(), ajot: keep(b.vanhat.ajot), lataukset: keep(b.vanhat.lataukset) };
+      }
       save(); render(); toast('Tuotu ' + n + ' kWh-lukemaa');
     }).catch(function () { toast('Tiedosto ei ole Akkuvahdin varmuuskopio'); })
       .finally(function () { $('impFile').value = ''; });
   });
   $('forget').addEventListener('click', function () {
-    if (!confirm('Poistetaanko avain, ajot, lataukset, syötetyt kWh-lukemat ja poissulkemiset tästä puhelimesta? Palvelun tietoihin tämä ei vaikuta.')) return;
+    if (!confirm('Poistetaanko avain, ajot, lataukset, tuodut vanhat tiedot, syötetyt kWh-lukemat ja poissulkemiset tästä puhelimesta? Palvelun ja Akun kapasiteetti -sovelluksen tietoihin tämä ei vaikuta.')) return;
     lsSet(KEY_AVAIN, null); lsSet(KEY_URL, null); lsSet(KEY_DATA, null);
     data = emptyData(); render(); toast('Poistettu');
   });

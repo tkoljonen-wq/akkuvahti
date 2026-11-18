@@ -17,6 +17,7 @@ Vanha *Akun kapasiteetti* (`C:\ohjelmat\Akun kapasiteetti`) jää ennalleen.
 | 14.11.2026 | Esilämmitys kerätään palveluun (`parking-climatization`); auton kulutusmittarin kWh näytetään ajoissa. |
 | 14.11.2026 | Lämpimästä hallista lähteneet ajot (palvelun `lammin_paikka`, oletuksena työpaikka, tai Halli-merkintä) jätetään kokonaan pois lämmityskorjauksesta ja oppimisesta, koska hallin lämpötila vaihtelee. |
 | 14.11.2026 | Alle 20 %-yksikön ajoja ei haeta eikä näytetä. Ne eivät ole missään laskennassa, joten niille ei tarvita hallimerkintää. |
+| 18.11.2026 | Vanhan Akun kapasiteetti -sovelluksen ajot ja lataukset ennen 8.11.2026 tuodaan Akkuvahtiin (Asetukset). Luetaan saman originin localStoragesta (`akkukapasiteetti-data-v1`, vain luku) tai sen JSON-varmuuskopiosta. Tallennetaan `akkuvahti-data-v1`:n kenttään `vanhat`, ei palveluun eikä repoon. |
 | 14.11.2026 | Auton mittarin kWh (`kwh_auto`) on osamatkan keskikulutuksen kertymän erotus, ei keskiarvo. Palvelu lukee keskikulutuksen samalta hetkeltä kuin osamatkan (ajon aikainen tai edellisen ajon lukema → null). Kapasiteetti kWh-vastineeseen on painotettu mediaani (mittarin ja varauksen pyöristysvirhe). Mittarin kWh ei vaikuta akun kuntoon eikä toimintamatkaan. |
 
 ## Arkkitehtuuri
@@ -128,6 +129,32 @@ localStorageen (`akkuvahti-data-v1`).
 | 5 | Lataukset ja kWh-syöttö, julkaistu ja todettu toimivaksi | ✅ 11.11.2026 |
 | 6 | Lämmityskorjaus: palvelun kentät, esilämmityksen keruu, lämpimät paikat, sovelluksen malli ja asetus | ✅ 14.11.2026 palvelu ja sovellus julkaistu (commit 8d7486e) |
 
-Jatkoideoita: vanhan sovelluksen ajojen tuonti (trendi heti pidemmältä ajalta);
-kapasiteetti auton kulutusmittarista (`kwh_auto`) Lataukset-mallin rinnalle
+| 7 | Vanhan sovelluksen tietojen tuonti (ajot ja lataukset ennen 8.11.) | ✅ 18.11.2026 testattu paikallisesti 5.11. varmuuskopiolla |
+
+## Vanhan sovelluksen tietojen tuonti (18.11.2026)
+
+Asetukset → *Akun kapasiteetti -sovelluksen tiedot*. Vanha sovellus on samassa
+originissa, joten sen `akkukapasiteetti-data-v1` luetaan suoraan (vain luku);
+varalla sen JSON-varmuuskopio. Uudelleentuonti korvaa aiemmin tuodut (tunnisteet
+`vanha-a-<pvm>-<km>` ja `vanha-l-<pvm>-<klo>-<km>` pysyvät, joten poissulut ja
+hallimerkinnät säilyvät). Vain ennen `ALKUPAIVA`a (8.11.) olevat, jotta mitään
+ei tule kahteen kertaan; ajoista vain ≥ `RAJA`.
+
+| Vanha | Akkuvahti | Huom. |
+|---|---|---|
+| ajo `odo`, `dist`, `socStart/End`, `speed`, `temp` | `km_alku`, `matka_km`, `soc_alku/loppu`, `nopeus` (`auto`), `lampo_c` | nopeus auton näytöltä, lämpötila Open-Meteo alku/loppu |
+| ajo: kellonaika, tauko | puuttuvat | lista järjestetään km-lukeman mukaan |
+| lataus `kwh`, `socBefore/After`, `km`, `temp`, aika | `data.kwh[id]`, `soc_ennen/jalkeen`, `km`, `lampo_c`, `alku/loppu` | lämpötila 6 h ka kuten nyt |
+| laturi `home`/`ac` / `dc` | `AC` / `DC` | |
+| `car.capacityNew` | `capNew` | vain jos Akkuvahdissa tyhjä |
+
+Lämmityskorjaus: ajo, joka alkaa pikalatauksen lopusta (km ±2 ja varaus ±1
+täsmäävät DC-latauksen loppuun), on lämmin lähtö (tauko 0). Muilta tauko on
+tuntematon, joten ne ovat laskennassa vain, kun korjaus on pois päältä.
+5.11. varmuuskopiossa: 11 ajoa (6 pikalatauksen jälkeen) ja 14 latausta 18.10.–5.11.
+
+Korjattu samalla: `null >= 0` on JS:ssä tosi, joten tuntematon tauko
+(`tauko_ennen_s` null) tulkittiin aiemmin nollaksi eli lämpimäksi lähdöksi.
+
+Jatkoideoita: kapasiteetti auton kulutusmittarista (`kwh_auto`) Lataukset-mallin rinnalle
 ilman käsin syötettyjä kWh:ta (ks. LAMMITYSKORJAUS.md luku 6).

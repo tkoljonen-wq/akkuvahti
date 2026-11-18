@@ -22,7 +22,10 @@ Lue ennen muutoksia: `docs/SUUNNITELMA.md`, `docs/LAMMITYSKORJAUS.md` ja palvelu
   `esilammitys`, `tauko_talli` ja `kwh_auto`. Hallista lähteneet ajot
   (`tauko_talli` tai käsin `data.talli`) eivät ole mukana korjauksessa eivätkä
   oppimisessa. Perustelut: `docs/LAMMITYSKORJAUS.md`.
-* Vanhaa Akun kapasiteetti -sovellusta **ei muuteta**.
+* Vanhaa Akun kapasiteetti -sovellusta **ei muuteta**. Sen ajot ja lataukset
+  ennen 8.11.2026 voi tuoda Akkuvahtiin (lisätty 18.11.2026): luetaan sen
+  localStoragesta `akkukapasiteetti-data-v1` vain lukien tai JSON-varmuuskopiosta,
+  tallennetaan `akkuvahti-data-v1` → `vanhat`. Henkilötietoja ei repoon.
 * Lämpötila mukana (Open-Meteo palvelun kautta). Sovellus ei käsittele
   sijainteja eikä avaimella ole sijaintioikeutta.
 * Käyttöliittymä suomeksi, optimoitu Android-puhelimelle.
